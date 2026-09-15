@@ -111,8 +111,9 @@ const rows = computed(() => {
               :style="{ '--gallery-columns': `repeat(${cols}, minmax(0, 1fr))` }"
             >
               <button
-                v-for="upload in item.items"
+v-for="upload in item.items"
                 :key="upload.id"
+                type="button"
                 class="group relative aspect-square rounded-xl sm:rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 bg-stone-100 text-left"
                 @click="$emit('open-image', upload)"
               >

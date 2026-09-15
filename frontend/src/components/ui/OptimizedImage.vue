@@ -181,6 +181,7 @@ const aspectRatioStyle = computed(() => {
         class="w-1/2 max-w-[100px] opacity-50"
       />
       <button
+type="button"
         class="absolute bottom-2 right-2 p-2 bg-white rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.15)] text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700"
         aria-label="Retry loading image"
         @click="retry"

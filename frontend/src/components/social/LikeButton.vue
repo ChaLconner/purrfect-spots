@@ -1,5 +1,6 @@
 <template>
   <button
+type="button"
     class="flex items-center gap-2 transition-all duration-300 group active:scale-95 cursor-pointer border-none bg-transparent outline-none select-none [&]:[-webkit-tap-highlight-color:transparent]"
     :class="[liked ? 'text-terracotta' : 'text-brown-light']"
     :aria-label="liked ? 'Unlike' : 'Like'"

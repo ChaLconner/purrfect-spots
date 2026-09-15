@@ -21,8 +21,9 @@
               block
               autocomplete="new-password"
               :disabled="isLoading"
+              :error="passwordTooShort ? t('auth.passwordMinLength') : ''"
             />
-            <PasswordStrengthMeter :password="password" />
+            <PasswordStrengthMeter :value="password" />
           </div>
 
           <div class="flex flex-col gap-2 mb-2">
@@ -46,7 +47,7 @@
             size="lg"
             class="mt-4"
             :loading="isLoading"
-            :disabled="passwordMismatch || !password || !confirmPassword"
+            :disabled="passwordMismatch || passwordTooShort || !password || !confirmPassword"
           >
             {{ $t('auth.updatePassword') }}
           </BaseButton>
@@ -74,6 +75,9 @@ import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
 import AuthLayout from '@/components/auth/AuthLayout.vue';
 import { BaseButton, BaseInput } from '@/components/ui';
 import { useSeo } from '@/composables/useSeo';
+import { MIN_PASSWORD_LENGTH } from '@/utils/security';
+import { useAuthStore } from '@/stores/authStore';
+import { takeRecoveryToken } from '@/utils/recoverySession';
 
 const route = useRoute();
 const router = useRouter();
@@ -87,6 +91,9 @@ const token = ref('');
 const passwordMismatch = computed(() => {
   return confirmPassword.value && password.value !== confirmPassword.value;
 });
+const passwordTooShort = computed(
+  () => password.value.length > 0 && password.value.length < MIN_PASSWORD_LENGTH
+);
 
 // SEO Setup
 const { setMetaTags, resetMetaTags } = useSeo();
@@ -111,7 +118,8 @@ onMounted(() => {
   }
 
   const queryToken = route.query.token as string;
-  token.value = accessToken || queryToken;
+  token.value = accessToken || queryToken || takeRecoveryToken() || '';
+  globalThis.history.replaceState(globalThis.history.state, '', globalThis.location.pathname);
 
   if (!token.value) {
     showError(t('auth.invalidToken'), t('common.error'));
@@ -135,6 +143,7 @@ const handleSubmit = async (): Promise<void> => {
       token: token.value,
       new_password: password.value,
     });
+    useAuthStore().clearAuth();
     showSuccess(t('auth.passwordUpdated'), 'Success');
     router.push('/login');
   } catch (err: unknown) {

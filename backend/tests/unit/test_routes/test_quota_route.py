@@ -37,13 +37,17 @@ class TestQuotaRoute:
         )
 
         # Override dependencies
-        app.dependency_overrides[get_current_user] = lambda: mock_user
-        app.dependency_overrides[get_quota_service] = lambda: mock_quota_service
+        app.dependency_overrides.update(
+            {
+                get_current_user: lambda: mock_user,
+                get_quota_service: lambda: mock_quota_service,
+            }
+        )
 
         response = await client.get("/api/v1/upload/quota")
 
         # Clean up overrides
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         data = response.json()
@@ -65,16 +69,27 @@ class TestQuotaRoute:
         mock_quota_service.get_user_quota_status = AsyncMock(side_effect=Exception("Database error"))
 
         # Override dependencies
-        app.dependency_overrides[get_current_user] = lambda: mock_user
-        app.dependency_overrides[get_quota_service] = lambda: mock_quota_service
+        app.dependency_overrides.update(
+            {
+                get_current_user: lambda: mock_user,
+                get_quota_service: lambda: mock_quota_service,
+            }
+        )
 
         # FastAPI might raise the exception directly in tests depending on configuration
         # but usually it returns a 500 response
+        response = None
+        error = None
         try:
             response = await client.get("/api/v1/upload/quota")
-            assert response.status_code == 500
-        except Exception as e:
-            assert str(e) == "Database error"
+        except Exception as exc:
+            error = exc
         finally:
             # Clean up overrides
-            app.dependency_overrides = {}
+            app.dependency_overrides.clear()
+
+        if error is not None:
+            assert str(error) == "Database error"
+        else:
+            assert response is not None
+            assert response.status_code == 500

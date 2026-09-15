@@ -147,7 +147,8 @@ function openDirections(): void {
         </h3>
         <div class="text-sm text-brown-meta flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
           <button
-            v-if="image?.location_name"
+v-if="image?.location_name"
+            type="button"
             class="text-location-badge font-bold text-sm transition-all duration-300 hover:text-terracotta-dark flex items-center group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 rounded-md py-0.5 text-left"
             :title="$t('galleryPage.modal.openInMaps')"
             @click="openDirections"
@@ -175,8 +176,9 @@ function openDirections(): void {
         <!-- Tags moved to header -->
         <div v-if="imageTags.length > 0" class="flex flex-wrap gap-2 mt-4">
           <button
-            v-for="tag in imageTags"
+v-for="tag in imageTags"
             :key="tag"
+            type="button"
             class="text-xs font-semibold text-sage-pill bg-sage-pill-bg px-3 py-1.5 rounded-full cursor-pointer transition-all duration-300 hover:bg-sage-pill-bg-hover hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-pill focus-visible:ring-offset-2 active:scale-95"
             @click="searchByTag(tag)"
           >
@@ -187,6 +189,7 @@ function openDirections(): void {
 
       <div class="flex items-center gap-2">
         <button
+type="button"
           class="w-10 h-10 rounded-full flex items-center justify-center text-brown-meta bg-transparent transition-all duration-300 cursor-pointer hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 active:scale-95"
           :title="$t('galleryPage.modal.reportContent')"
           @click="isReportOpen = true"
@@ -207,6 +210,7 @@ function openDirections(): void {
           </svg>
         </button>
         <button
+type="button"
           class="w-10 h-10 rounded-full flex items-center justify-center text-brown-meta bg-transparent transition-all duration-300 cursor-pointer hover:bg-brown-text/10 hover:text-brown-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brown-text active:scale-95 max-[899px]:hidden"
           :aria-label="$t('galleryPage.modal.close')"
           @click="$emit('close')"
@@ -268,8 +272,9 @@ function openDirections(): void {
               <!-- Quantity Selector -->
               <div class="flex bg-brown/5 rounded-full p-1 gap-1">
                 <button
-                  v-for="amt in [1, 5, 10, 50]"
+v-for="amt in [1, 5, 10, 50]"
                   :key="amt"
+                  type="button"
                   class="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-[11px] sm:text-xs font-bold rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 active:scale-95"
                   :class="
                     selectedAmount === amt
@@ -284,6 +289,7 @@ function openDirections(): void {
 
               <!-- Action Button -->
               <button
+type="button"
                 class="flex-1 max-w-[140px] sm:max-w-[160px] h-9 sm:h-10 bg-terracotta hover:bg-terracotta-dark text-white font-bold rounded-full shadow-sm hover:shadow-md hover:shadow-terracotta/30 active:scale-95 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 flex items-center justify-center group"
                 :disabled="isSendingTreat"
                 @click="handleGiveTreat"

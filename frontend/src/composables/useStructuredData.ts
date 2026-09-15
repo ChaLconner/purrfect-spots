@@ -28,7 +28,7 @@ export function useStructuredData(data: SchemaData | Ref<SchemaData>): void {
 
     onUnmounted(() => {
       if (scriptElement && document.head.contains(scriptElement)) {
-        document.head.removeChild(scriptElement);
+        scriptElement.remove();
       }
     });
   } else {

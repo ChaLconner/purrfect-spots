@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { AuthService } from '../../services/authService';
 import { showSuccess } from '../../stores/toast';
 import { isDev } from '../../utils/env';
+import { sanitizeAvatarUrl } from '@/utils/avatar';
 
 const { t } = useI18n();
 const showUserMenu = ref(false);
@@ -14,7 +15,7 @@ const authStore = useAuthStore();
 const avatarLoaded = ref(false);
 const avatarLoadFailed = ref(false);
 
-const avatarSrc = computed(() => authStore.user?.picture || '');
+const avatarSrc = computed(() => sanitizeAvatarUrl(authStore.user?.picture) || '');
 const userInitials = computed(() => {
   const displayName = authStore.user?.name?.trim();
   const emailName = authStore.user?.email?.split('@')[0]?.trim();
@@ -78,6 +79,7 @@ watch(avatarSrc, () => {
 <template>
   <div class="relative user-menu-container">
     <button
+type="button"
       class="group relative w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-btn-shade-e)] border-2 border-[var(--color-btn-shade-a)] text-[var(--color-btn-shade-a)] shrink-0 cursor-pointer transition-all duration-[150ms] ease-out hover:bg-[var(--color-btn-shade-d)] hover:translate-y-[0.1rem] active:translate-y-[0.25rem] preserve-3d will-change-transform"
       :aria-expanded="showUserMenu"
       :aria-label="$t('accessibility.userMenu')"
@@ -143,6 +145,7 @@ watch(avatarSrc, () => {
         {{ $t('nav.profile') }}
       </router-link>
       <button
+type="button"
         class="block w-full px-4 py-3 font-accent text-[0.85rem] font-semibold text-left bg-transparent border-none cursor-pointer transition-all duration-[175ms] ease-in-out hover:translate-x-1 text-[#dc4a4a] hover:bg-[#ffeeee]"
         @click="logout"
       >

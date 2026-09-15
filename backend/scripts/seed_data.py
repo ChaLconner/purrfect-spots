@@ -1,4 +1,3 @@
-import asyncio
 import contextlib
 import os
 import random
@@ -24,22 +23,9 @@ supabase: Client = create_client(url, key)
 fake = Faker()
 
 
-async def seed_data() -> None:
-    print("🌱 Starting data seeding...")
-
-    # 1. Create Users
-    print("Creating users...")
+def _load_seed_users() -> list[dict[str, Any]]:
     users: list[dict[str, Any]] = []
     for _ in range(5):
-        {
-            "email": fake.email(),
-            "name": fake.name(),
-            "picture": f"https://i.pravatar.cc/150?u={random.randint(1, 1000)}",  # NOSONAR python:S2245 - PRNG for fake seed data only
-            "bio": fake.sentence(),
-            "email_verified": True,
-            "provider": "email",
-            "treat_balance": random.randint(0, 50),  # NOSONAR python:S2245
-        }
         # Note: We can't set passwords directly via Supabase client easily for auth schema,
         # so we'll just insert into public.users for now to simulate existence.
         # Ideally, we'd use supabase.auth.admin.create_user if we wanted login capability.
@@ -66,11 +52,11 @@ async def seed_data() -> None:
             # Better approach: Create a user via Auth API if we were doing a full integration seed.
             # For now, let's assume we have some users or we can't seed properly without them.
             print("⚠️ No existing users found. Please register a user via the app first for best results.")
-            return
+            return []
+    return users
 
-    print(f"Found {len(users)} users to act as actors.")
 
-    # 2. Create Cat Photos
+def _create_seed_photos(users: list[dict[str, Any]]) -> list[dict[str, Any]]:
     print("Creating cat photos...")
     photos: list[dict[str, Any]] = []
     cat_images = [
@@ -80,52 +66,53 @@ async def seed_data() -> None:
         "https://images.unsplash.com/photo-1511044568932-338cba0fb803",
         "https://images.unsplash.com/photo-1519052537078-e6302a4968ef",
     ]
-
     for _i in range(10):
         owner = random.choice(users)  # NOSONAR python:S2245 - PRNG for fake seed data only
-        # Use coordinates within Thailand (Bangkok area approx: Lat 13-14, Lng 100-101)
         photo_data = {
             "user_id": owner["id"],
             "url": random.choice(cat_images),  # NOSONAR python:S2245
             "description": fake.text(),
-            "latitude": float(fake.latitude()) % 2 + 13.0,  # Around Bangkok
+            "latitude": float(fake.latitude()) % 2 + 13.0,
             "longitude": float(fake.longitude()) % 2 + 100.0,
             "image_url": random.choice(cat_images),  # NOSONAR python:S2245 - PRNG for fake seed data only
-            "location_name": fake.city(),  # Required field
+            "location_name": fake.city(),
         }
-        # Note: image_url is the correct column name, url should be removed.
-        if "url" in photo_data:
-            del photo_data["url"]
-
+        del photo_data["url"]
         res = supabase.table("cat_photos").insert(photo_data).execute()
         if res.data:
             photos.append(cast(dict[str, Any], res.data[0]))
-
     print(f"Created {len(photos)} photos.")
+    return photos
 
-    # 3. Create Interactions (Likes & Comments)
+
+def _create_seed_interactions(photos: list[dict[str, Any]], users: list[dict[str, Any]]) -> None:
     print("Creating interactions...")
     for photo in photos:
-        # Random likes
         for _ in range(random.randint(0, 5)):  # NOSONAR python:S2245
             actor = random.choice(users)  # NOSONAR python:S2245
             with contextlib.suppress(Exception):
                 supabase.table("photo_likes").insert({"user_id": actor["id"], "photo_id": photo["id"]}).execute()
 
-        # Random comments
         for _ in range(random.randint(0, 3)):  # NOSONAR python:S2245
-            if users:
-                actor = random.choice(users)  # NOSONAR python:S2245
-                supabase.table("photo_comments").insert(
-                    {
-                        "user_id": actor["id"],
-                        "photo_id": photo["id"],
-                        "content": fake.sentence(),
-                    }
-                ).execute()
+            if not users:
+                continue
+            actor = random.choice(users)  # NOSONAR python:S2245
+            supabase.table("photo_comments").insert(
+                {"user_id": actor["id"], "photo_id": photo["id"], "content": fake.sentence()}
+            ).execute()
 
+
+def seed_data() -> None:
+    print("🌱 Starting data seeding...")
+
+    users = _load_seed_users()
+    if not users:
+        return
+
+    print(f"Found {len(users)} users to act as actors.")
+    _create_seed_interactions(_create_seed_photos(users), users)
     print("✅ Seed data inserted successfully!")
 
 
 if __name__ == "__main__":
-    asyncio.run(seed_data())
+    seed_data()

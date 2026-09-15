@@ -70,7 +70,6 @@ async def check_database() -> dict[str, Any]:
             "connection": "active",
         }
     except Exception as e:
-        #         latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
         logger.error("Database health check failed: %s", str(e).replace("\n", " ").replace("\r", " "))
         return {"status": "unhealthy", "error": ERROR_CONNECTION_FAILED}
 
@@ -187,7 +186,7 @@ def check_google_vision() -> dict[str, Any]:
         if service_account_json:
             try:
                 service_account_info = json.loads(service_account_json)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 return {
                     "status": "unhealthy",
                     "error": "GOOGLE_VISION_SERVICE_ACCOUNT is not valid JSON",

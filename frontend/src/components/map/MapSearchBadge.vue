@@ -31,6 +31,7 @@
           </template>
         </i18n-t>
         <button
+type="button"
           class="group relative w-8 h-8 sm:w-7 sm:h-7 shrink-0 flex items-center justify-center bg-btn-accent-e border-2 border-btn-accent-a rounded-full text-btn-accent-a cursor-pointer outline-none transition-transform duration-[175ms] ease-[cubic-bezier(0,0,1,1)] hover:bg-btn-accent-d hover:translate-y-[0.1em] active:translate-y-[0.2em] preserve-3d"
           :aria-label="$t('map.clearSearch')"
           @click="$emit('clear')"

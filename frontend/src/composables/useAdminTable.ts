@@ -68,8 +68,8 @@ export function useAdminTable<T extends { id: string }>(
 
   const toggleSelectAll = (): void => {
     if (isAllSelected.value) {
-      const pageIds = items.value.map((i) => i.id);
-      selectedIds.value = selectedIds.value.filter((id) => !pageIds.includes(id));
+      const pageIds = new Set(items.value.map((i) => i.id));
+      selectedIds.value = selectedIds.value.filter((id) => !pageIds.has(id));
     } else {
       const pageIds = items.value.map((i) => i.id);
       const newIds = new Set([...selectedIds.value, ...pageIds]);
@@ -153,9 +153,9 @@ export function useAdminTable<T extends { id: string }>(
 
       const escapeCSV = (val: unknown): string => {
         if (val === null || val === undefined) return '';
-        const s = String(val);
+        const s = typeof val === 'string' ? val : JSON.stringify(val) ?? '';
         if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-          return `"${s.replace(/"/g, '""')}"`;
+          return `"${s.replaceAll('"', '""')}"`;
         }
         return s;
       };
@@ -254,7 +254,7 @@ export function useAdminTable<T extends { id: string }>(
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
+      link.remove?.();
       URL.revokeObjectURL(url);
 
       toast({ description: 'Data exported successfully', variant: 'success' });

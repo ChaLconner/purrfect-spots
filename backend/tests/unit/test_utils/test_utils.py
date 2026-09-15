@@ -191,35 +191,80 @@ class TestImageUtils:
         opt_img = Image.open(io.BytesIO(optimized_bytes))
         assert opt_img.format == "WEBP"
 
-    def test_optimize_image_gif_passthrough(self) -> None:
-        """Test GIF images are passed through untouched"""
+    def test_optimize_image_gif_is_reencoded(self) -> None:
+        """Test GIF images are re-encoded without carrying source metadata"""
         from PIL import Image
 
         from app.utils.image_utils import optimize_image
 
         # Create a simple GIF
         img = Image.new("RGB", (100, 100), color="red")
+        img.putpixel((0, 0), (0, 0, 255))
         buffer = io.BytesIO()
-        img.save(buffer, format="GIF")
+        img.save(buffer, format="GIF", comment=b"source-comment")
         original_bytes = buffer.getvalue()
 
-        optimized_bytes, _ = optimize_image(original_bytes, "image/gif")
+        optimized_bytes, content_type = optimize_image(original_bytes, "image/gif")
 
-        # Should return original
-        assert optimized_bytes == original_bytes
-        # Content type might be normalized but check behavior
+        assert content_type == "image/gif"
+        assert optimized_bytes != original_bytes
+        with Image.open(io.BytesIO(optimized_bytes)) as optimized:
+            assert optimized.info.get("comment") is None
+
+    def test_optimize_image_preserves_animated_gif_frames(self) -> None:
+        """Animated GIFs remain animated while source metadata is removed."""
+        from PIL import Image
+
+        from app.utils.image_utils import optimize_image
+
+        first = Image.new("RGB", (40, 40), color="red")
+        second = Image.new("RGB", (40, 40), color="blue")
+        buffer = io.BytesIO()
+        first.save(
+            buffer,
+            format="GIF",
+            save_all=True,
+            append_images=[second],
+            duration=[100, 200],
+            loop=0,
+            comment=b"source-comment",
+        )
+
+        optimized_bytes, content_type = optimize_image(buffer.getvalue(), "image/gif")
+
+        assert content_type == "image/gif"
+        with Image.open(io.BytesIO(optimized_bytes)) as optimized:
+            assert optimized.n_frames == 2
+            assert optimized.info.get("comment") is None
+
+    def test_optimize_image_rejects_animated_gif_resource_blowup(self) -> None:
+        """Animated GIF processing is bounded before all frames are retained."""
+        from PIL import Image
+
+        from app.utils.image_utils import optimize_image
+
+        first = Image.new("RGB", (40, 40), color="red")
+        frames = [Image.new("RGB", (40, 40), color=color) for color in ("blue", "green")]
+        buffer = io.BytesIO()
+        first.save(buffer, format="GIF", save_all=True, append_images=frames, duration=100, loop=0)
+        gif_data = buffer.getvalue()
+
+        with (
+            patch("app.utils.image_utils.MAX_ANIMATED_GIF_FRAMES", 2),
+            pytest.raises(ValueError, match="Image optimization failed"),
+        ):
+            optimize_image(gif_data, "image/gif")
 
     def test_optimize_image_corrupted(self) -> None:
-        """Test graceful handling of corrupted images"""
+        """Test corrupted images are rejected instead of returned unchanged"""
+        import pytest
+
         from app.utils.image_utils import optimize_image
 
         bad_data = b"not an image"
 
-        optimized_bytes, content_type = optimize_image(bad_data, "image/jpeg")
-
-        # Should return original data on failure
-        assert optimized_bytes == bad_data
-        assert content_type == "image/jpeg"
+        with pytest.raises(ValueError, match="Image optimization failed"):
+            optimize_image(bad_data, "image/jpeg")
 
     def test_is_valid_image(self) -> None:
         """Test image validation"""
@@ -308,14 +353,24 @@ class TestRateLimiter:
 
     def test_get_user_id_from_request_authenticated(self) -> None:
         """Test user ID extraction from authenticated request"""
+        # Create a valid JWT token for testing
+        import time
+
         import jwt
 
         from app.limiter import get_user_id_from_request
 
-        # Create a valid JWT token for testing
         with patch("app.config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
             token = jwt.encode(
-                {"sub": "user-123", "iss": "purrfect-spots"},
+                {
+                    "sub": "user-123",
+                    "iss": "purrfect-spots",
+                    "aud": "purrfect-spots-api",
+                    "exp": int(time.time()) + 60,
+                    "iat": int(time.time()),
+                    "jti": "test-jti",
+                    "type": "access",
+                },
                 "secret_key_at_least_32_chars_long_for_security",
                 algorithm="HS256",
             )
@@ -354,12 +409,23 @@ class TestAuthUtils:
 
     def test_decode_token_valid(self) -> None:
         """Test decoding valid token"""
+        import time
+
         import jwt
 
         from app.utils.auth_utils import decode_token
 
-        secret = "test_secret_key_at_least_32_chars"  # nosonar - test-only JWT signing key
-        payload = {"sub": "user123"}
+        secret = "test_secret_key_at_least_32_chars"  # pragma: allowlist secret
+        now = int(time.time())
+        payload = {
+            "sub": "user123",
+            "iss": "purrfect-spots",
+            "aud": "purrfect-spots-api",
+            "exp": now + 60,
+            "iat": now,
+            "jti": "test-jti",
+            "type": "access",
+        }
         token = jwt.encode(payload, secret, algorithm="HS256")
 
         with patch("app.config.config.JWT_SECRET", secret):
@@ -374,8 +440,16 @@ class TestAuthUtils:
 
         from app.utils.auth_utils import decode_token
 
-        secret = "test_secret_key_at_least_32_chars"  # nosonar - test-only JWT signing key
-        payload = {"sub": "user123", "exp": int(time.time()) - 3600}
+        secret = "test_secret_key_at_least_32_chars"  # pragma: allowlist secret
+        payload = {
+            "sub": "user123",
+            "iss": "purrfect-spots",
+            "aud": "purrfect-spots-api",
+            "exp": int(time.time()) - 3600,
+            "iat": int(time.time()) - 7200,
+            "jti": "test-jti",
+            "type": "access",
+        }
         token = jwt.encode(payload, secret, algorithm="HS256")
 
         with patch("app.config.config.JWT_SECRET", secret), pytest.raises(ValueError, match="Token has expired"):
@@ -387,7 +461,7 @@ class TestAuthUtils:
 
         from app.utils.auth_utils import decode_token
 
-        secret = "test_secret_key_at_least_32_chars"  # nosonar - test-only JWT signing key
+        secret = "test_secret_key_at_least_32_chars"  # pragma: allowlist secret
         payload = {"sub": "user123"}
         token = jwt.encode(payload, secret, algorithm="HS256")
 

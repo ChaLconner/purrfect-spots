@@ -22,6 +22,10 @@ class UserProfileMixin(UserBaseMixin):
             if not user_id:
                 raise ValueError("Missing user_id (sub) in user_data")
 
+            existing_user = await self.get_user_by_id(str(user_id))
+            if existing_user:
+                return existing_user
+
             user_record = self._prepare_user_record(user_data, user_id)
 
             if self.db:
@@ -107,9 +111,7 @@ class UserProfileMixin(UserBaseMixin):
 
         await admin.table("users").upsert(user_record, on_conflict="id").execute()
 
-    async def update_user_profile(
-        self, user_id: str, update_data: dict[str, Any], jwt_token: str | None = None
-    ) -> dict[str, Any]:
+    async def update_user_profile(self, user_id: str, update_data: dict[str, Any]) -> dict[str, Any]:
         """Update user profile (Async)"""
         try:
             if "picture" in update_data:

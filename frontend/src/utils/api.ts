@@ -28,8 +28,9 @@ import {
   type OfflineMutation,
 } from './offlineQueue';
 
-import { ApiError, ApiErrorTypes, formatApiErrorMessage } from './apiErrors';
-export { ApiError, ApiErrorTypes, formatApiErrorMessage };
+import { ApiError, ApiErrorTypes } from './apiErrors';
+export { ApiError, ApiErrorTypes } from './apiErrors';
+export { formatApiErrorMessage } from './apiErrors';
 export type { OfflineQueuedResponse } from './offlineQueue';
 
 // ========== State & Callbacks (Break Circular Dependencies) ==========
@@ -266,7 +267,7 @@ const createApiInstance = (): AxiosInstance => {
         },
         429: () => {
           const retryAfter = error.response?.headers?.['retry-after'];
-          const seconds = retryAfter ? parseInt(String(retryAfter), 10) : 60;
+          const seconds = retryAfter ? Number.parseInt(String(retryAfter), 10) : 60;
           const msg = `Rate limit exceeded. Please wait ${seconds} seconds before retrying.`;
           throw new ApiError(ApiErrorTypes.SERVER_ERROR, msg, status, error);
         },
@@ -326,6 +327,31 @@ interface RetryableRequestConfig extends ApiRequestConfig {
 let isRefreshingToken = false;
 let refreshPromise: Promise<boolean> | null = null;
 
+async function refreshAccessToken(): Promise<boolean> {
+  if (!refreshTokenCallback) return false;
+  if (!isRefreshingToken) {
+    isRefreshingToken = true;
+    refreshPromise = refreshTokenCallback().finally(() => {
+      isRefreshingToken = false;
+      refreshPromise = null;
+    });
+  }
+  const pendingRefresh = refreshPromise;
+  if (pendingRefresh) return pendingRefresh;
+  return false;
+}
+
+function logoutUser(): void {
+  logoutCallback?.();
+}
+
+function retryWithAccessToken(originalRequest: RetryableRequestConfig): Promise<unknown> {
+  if (currentAccessToken && originalRequest.headers) {
+    originalRequest.headers.Authorization = `Bearer ${currentAccessToken}`;
+  }
+  return apiInstance(originalRequest);
+}
+
 // Handle 401 errors (Token Expiry)
 async function handleUnauthorizedError(error: AxiosError, status: number): Promise<unknown> {
   const originalRequest = error.config as RetryableRequestConfig;
@@ -334,7 +360,7 @@ async function handleUnauthorizedError(error: AxiosError, status: number): Promi
   // Avoid infinite loops
   if (originalRequest._retry || originalRequest.__is_refreshing) {
     console.warn('[API Interceptor] Infinite retry loop detected for:', originalRequest.url);
-    if (logoutCallback) logoutCallback();
+    logoutUser();
     throw error;
   }
 
@@ -342,26 +368,10 @@ async function handleUnauthorizedError(error: AxiosError, status: number): Promi
   originalRequest.__is_refreshing = true;
 
   try {
-    if (refreshTokenCallback) {
-      if (!isRefreshingToken) {
-        isRefreshingToken = true;
-        refreshPromise = refreshTokenCallback().finally(() => {
-          isRefreshingToken = false;
-          refreshPromise = null;
-        });
-      }
-      const refreshed = await refreshPromise;
-      if (refreshed) {
-        // Retry original request with new token
-        if (currentAccessToken && originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${currentAccessToken}`;
-        }
-        return apiInstance(originalRequest);
-      }
-    }
+    if (await refreshAccessToken()) return retryWithAccessToken(originalRequest);
 
     // Refresh failed or no callback
-    if (logoutCallback) logoutCallback();
+    logoutUser();
     throw new ApiError(
       ApiErrorTypes.AUTHENTICATION_ERROR,
       'Session expired. Please login again.',
@@ -369,7 +379,7 @@ async function handleUnauthorizedError(error: AxiosError, status: number): Promi
       error
     );
   } catch (refreshError) {
-    if (logoutCallback) logoutCallback();
+    logoutUser();
     throw refreshError;
   }
 }
@@ -698,11 +708,8 @@ export const uploadFile = async <T = unknown>(
   if (additionalData) {
     Object.entries(additionalData).forEach(([key, value]) => {
       if (value === undefined) return;
-      if (typeof value === 'object' && value !== null) {
-        formData.append(key, JSON.stringify(value));
-      } else {
-        formData.append(key, String(value));
-      }
+      const stringValue = typeof value === 'string' ? value : JSON.stringify(value) ?? '';
+      formData.append(key, stringValue);
     });
   }
 

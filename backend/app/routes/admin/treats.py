@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from app.dependencies import get_async_supabase_admin_client
 from app.logger import logger
 from app.middleware.auth_middleware import require_permission
-from app.routes.admin.helpers import CommonPagination
+from app.routes.admin.helpers import ADMIN_ERROR_RESPONSES, CommonPagination
 from app.schemas.user import User
 from app.services.redis_service import redis_service
 from app.utils.audit_logger import log_admin_action
@@ -24,13 +24,13 @@ class GrantTreatRequest(BaseModel):
     reason: str = Field(..., min_length=1, max_length=500, description="Reason for the grant")
 
 
-@router.get("/transactions")
+@router.get("/transactions", responses=ADMIN_ERROR_RESPONSES)
 async def list_treat_transactions(
     request: Request,
     pagination: Annotated[CommonPagination, Depends()],
+    current_admin: Annotated[User, Depends(require_permission("treats:manage"))],
     transaction_type: Annotated[str | None, Query()] = None,
     search: Annotated[str | None, Query()] = None,
-    current_admin: User = Depends(require_permission("treats:manage")),
 ) -> dict[str, Any]:
     """List all treat transactions (purchases, giving, grants)."""
     try:
@@ -99,9 +99,9 @@ async def _fetch_treat_stats_fallback(admin_client: Any) -> dict[str, Any]:
     }
 
 
-@router.get("/stats")
+@router.get("/stats", responses=ADMIN_ERROR_RESPONSES)
 async def get_treat_stats(
-    current_admin: User = Depends(require_permission("treats:manage")),
+    current_admin: Annotated[User, Depends(require_permission("treats:manage"))],
 ) -> dict[str, Any]:
     """Get global treat statistics."""
     cached = await redis_service.get(TREAT_STATS_CACHE_KEY)
@@ -133,11 +133,11 @@ async def get_treat_stats(
         raise HTTPException(status_code=500, detail="Failed to fetch treat stats")
 
 
-@router.get("/users/search")
+@router.get("/users/search", responses=ADMIN_ERROR_RESPONSES)
 async def search_users_for_grant(
     q: Annotated[str, Query(min_length=1, max_length=100)],
+    current_admin: Annotated[User, Depends(require_permission("treats:manage"))],
     limit: Annotated[int, Query(ge=1, le=20)] = 10,
-    current_admin: User = Depends(require_permission("treats:manage")),
 ) -> dict[str, Any]:
     """Search users by name or email for the grant modal."""
     try:
@@ -155,11 +155,11 @@ async def search_users_for_grant(
         raise HTTPException(status_code=500, detail="Failed to search users")
 
 
-@router.post("/grant")
+@router.post("/grant", responses=ADMIN_ERROR_RESPONSES)
 async def grant_treats_manually(
     request: Request,
     data: GrantTreatRequest,
-    current_admin: User = Depends(require_permission("treats:manage")),
+    current_admin: Annotated[User, Depends(require_permission("treats:manage"))],
 ) -> dict[str, Any]:
     """Manually grant treats to a user (System Grant)."""
     try:

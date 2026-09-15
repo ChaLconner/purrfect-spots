@@ -51,7 +51,7 @@ jobs:
         if: steps.sonar-config.outputs.configured == 'true'
         run: |
           cd backend
-          pytest --cov=app --cov-report=xml:coverage.xml --cov-report=term
+          pytest --cov=app --cov=scripts --cov-report=xml:coverage.xml --cov-report=term
 
       - name: Setup frontend for coverage
         if: steps.sonar-config.outputs.configured == 'true'

@@ -55,13 +55,13 @@ class TestAPIVersioning:
             }
         )
 
-        app.dependency_overrides[get_gallery_service] = lambda: mock_service
+        app.dependency_overrides.update({get_gallery_service: lambda: mock_service})
 
         response = client.get("/api/v1/gallery/")
 
         assert response.status_code == 200
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
     def test_v1_health_not_versioned(self, client) -> None:
         """Test that health endpoints are not versioned"""

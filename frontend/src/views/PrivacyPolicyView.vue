@@ -22,5 +22,4 @@
 import { useLegalPageContent } from '@/composables/useLegalPageContent';
 
 const { contentRef } = useLegalPageContent('privacyPolicy.content');
-void contentRef;
 </script>

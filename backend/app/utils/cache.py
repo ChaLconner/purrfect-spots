@@ -15,6 +15,8 @@ from app.config import config
 from app.logger import logger
 from app.services.redis_service import redis_service
 
+ALL_CACHE_PATTERN = "cache:*"
+
 # Reuse RedisService connection pool. Separate clients created here and in token
 # handling caused unnecessary pools and made shutdown harder to manage.
 redis_client: redis.Redis | None = redis_service.client
@@ -113,6 +115,39 @@ async def _write_cached_value(cache_key: str, result: Any, expire: int) -> None:
     )
 
 
+def _build_cache_key(
+    func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any], skip_args: int, key_prefix: str
+) -> str:
+    _purge_expired_memory_entries()
+    arg_hash = generate_cache_key(*args[skip_args:], **kwargs)
+    namespace = key_prefix or func.__name__
+    return f"cache:{namespace}:{func.__name__}:{arg_hash}"
+
+
+async def _run_cache_miss(
+    func: Callable[..., Coroutine[Any, Any, Any]],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    cache_key: str,
+    lock: asyncio.Lock,
+    expire: int,
+) -> Any:
+    try:
+        async with lock:
+            cached = await _read_cached_value(cache_key)
+            if cached is not None:
+                return cached
+            result = await func(*args, **kwargs)
+            try:
+                await _write_cached_value(cache_key, result, expire)
+            except Exception as e:
+                logger.warning("Cache write skipped: %s", e)
+            return result
+    except Exception as e:
+        logger.warning("Cache fetch/write error: %s", e)
+        raise
+
+
 def cache(
     expire: int = 60, key_prefix: str = "", skip_args: int = 0
 ) -> Callable[[Callable[..., Coroutine[Any, Any, Any]]], Callable[..., Coroutine[Any, Any, Any]]]:
@@ -124,15 +159,8 @@ def cache(
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # 1. Generate Cache Key
+            cache_key = _build_cache_key(func, args, kwargs, skip_args, key_prefix)
             try:
-                _purge_expired_memory_entries()
-
-                # Skip first N args for key generation (e.g. self, cls, client)
-                key_args = args[skip_args:]
-                arg_hash = generate_cache_key(*key_args, **kwargs)
-                namespace = key_prefix or func.__name__
-                cache_key = f"cache:{namespace}:{func.__name__}:{arg_hash}"
-
                 cached = await _read_cached_value(cache_key)
                 if cached is not None:
                     if is_dev:
@@ -146,19 +174,7 @@ def cache(
             # 2. Coalesce concurrent misses for the same key.
             lock = _inflight_locks.setdefault(cache_key, asyncio.Lock())
             try:
-                async with lock:
-                    cached = await _read_cached_value(cache_key)
-                    if cached is not None:
-                        return cached
-                    result = await func(*args, **kwargs)
-                    try:
-                        await _write_cached_value(cache_key, result, expire)
-                    except Exception as e:
-                        logger.warning("Cache write skipped: %s", e)
-                    return result
-            except Exception as e:
-                logger.warning("Cache fetch/write error: %s", e)
-                raise
+                return await _run_cache_miss(func, args, kwargs, cache_key, lock, expire)
             finally:
                 waiters = getattr(lock, "_waiters", None)
                 if not lock.locked() and not waiters:
@@ -169,46 +185,48 @@ def cache(
     return decorator
 
 
-async def clear_cache(pattern: str = "cache:*") -> None:
-    """Clear cache by pattern"""
-    # 1. Clear Memory Cache
-    if pattern == "cache:*":
+def _clear_memory_cache(pattern: str) -> None:
+    if pattern == ALL_CACHE_PATTERN:
         memory_cache.clear()
-    else:
-        if pattern.endswith("*"):
-            prefix = pattern[:-1]
-            keys_to_del = [k for k in list(memory_cache.keys()) if k.startswith(prefix)]
-            for k in keys_to_del:
-                del memory_cache[k]
-        else:
-            if pattern in memory_cache:
-                del memory_cache[pattern]
+        return
+    if pattern.endswith("*"):
+        prefix = pattern[:-1]
+        for key in [key for key in tuple(memory_cache) if key.startswith(prefix)]:
+            del memory_cache[key]
+        return
+    memory_cache.pop(pattern, None)
 
-    # 2. Clear Redis Cache
-    if redis_client:
-        try:
-            try:
-                asyncio.get_running_loop()
-            except RuntimeError:
-                return  # No running loop
 
-            batch: list[str] = []
-            async for key in redis_client.scan_iter(match=pattern, count=500):
-                batch.append(str(key))
-                if len(batch) >= 500:
-                    await redis_client.delete(*batch)
-                    batch.clear()
-            if batch:
+async def _clear_redis_cache(pattern: str) -> None:
+    if not redis_client:
+        return
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    try:
+        batch: list[str] = []
+        async for key in redis_client.scan_iter(match=pattern, count=500):
+            batch.append(str(key))
+            if len(batch) >= 500:
                 await redis_client.delete(*batch)
-        except Exception as e:
-            logger.debug(f"Failed to clear Redis cache: {e}")
-            # pass
+                batch.clear()
+        if batch:
+            await redis_client.delete(*batch)
+    except Exception as e:
+        logger.debug("Failed to clear Redis cache: %s", e)
+
+
+async def clear_cache(pattern: str = ALL_CACHE_PATTERN) -> None:
+    """Clear cache by pattern"""
+    _clear_memory_cache(pattern)
+    await _clear_redis_cache(pattern)
 
 
 async def clear_cache_patterns(patterns: tuple[str, ...]) -> None:
     """Invalidate related namespaces with one Redis scan."""
     prefixes = tuple(pattern[:-1] if pattern.endswith("*") else pattern for pattern in patterns)
-    for key in list(memory_cache):
+    for key in tuple(memory_cache):
         if any(key.startswith(prefix) for prefix in prefixes):
             memory_cache.pop(key, None)
 
@@ -216,7 +234,7 @@ async def clear_cache_patterns(patterns: tuple[str, ...]) -> None:
         return
     try:
         batch: list[str] = []
-        async for key in redis_client.scan_iter(match="cache:*", count=500):
+        async for key in redis_client.scan_iter(match=ALL_CACHE_PATTERN, count=500):
             key_text = str(key)
             if any(key_text.startswith(prefix) for prefix in prefixes):
                 batch.append(key_text)
@@ -231,7 +249,7 @@ async def clear_cache_patterns(patterns: tuple[str, ...]) -> None:
 
 async def invalidate_all_caches() -> None:
     """Invalidate all application caches"""
-    await clear_cache("cache:*")
+    await clear_cache(ALL_CACHE_PATTERN)
 
 
 # Aliases for compatibility
@@ -260,7 +278,7 @@ async def invalidate_user_cache(user_id: str | None = None) -> None:
     await clear_cache_patterns(("cache:user_photos:*", "cache:user_likes:*"))
 
 
-async def invalidate_after_upload(user_id: str) -> None:
+async def invalidate_after_upload() -> None:
     """Invalidate upload-affected namespaces with one bounded Redis scan."""
     await clear_cache_patterns(
         (

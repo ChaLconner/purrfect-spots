@@ -22,6 +22,7 @@ const navigateToProfile = (): void => {
 
 <template>
   <button
+type="button"
     class="group flex flex-col items-center flex-1 py-1 px-2 rounded-xl transition-all duration-300 active:scale-95"
     :class="isActive ? 'text-btn-shade-a' : 'text-btn-shade-b hover:text-btn-shade-c'"
     :aria-label="isAuthenticated ? $t('nav.profile') : $t('auth.login')"

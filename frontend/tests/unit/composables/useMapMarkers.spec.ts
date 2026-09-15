@@ -22,17 +22,20 @@ vi.mock('@googlemaps/markerclusterer', () => ({
 
 class MockMarker {
   static MAX_ZINDEX = 1_000_000;
+  static instances: MockMarker[] = [];
 
   readonly options: Record<string, unknown>;
   readonly setIcon = vi.fn((icon: unknown) => {
     this.options.icon = icon;
   });
   readonly setPosition = vi.fn();
+  readonly setTitle = vi.fn();
   readonly setMap = vi.fn();
   readonly addListener = vi.fn().mockReturnValue({ remove: vi.fn() });
 
   constructor(options: Record<string, unknown>) {
     this.options = { ...options };
+    MockMarker.instances.push(this);
   }
 
   getPosition(): { lat: () => number; lng: () => number } | null {
@@ -40,6 +43,21 @@ class MockMarker {
     return position
       ? { lat: () => position.lat, lng: () => position.lng }
       : null;
+  }
+}
+
+class MockCircle {
+  static instances: MockCircle[] = [];
+
+  readonly setMap = vi.fn();
+  readonly setOptions = vi.fn((options: Record<string, unknown>) => {
+    this.options = { ...this.options, ...options };
+  });
+  options: Record<string, unknown>;
+
+  constructor(options: Record<string, unknown>) {
+    this.options = { ...options };
+    MockCircle.instances.push(this);
   }
 }
 
@@ -114,6 +132,8 @@ describe('useMapMarkers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     MockImage.instances = [];
+    MockMarker.instances = [];
+    MockCircle.instances = [];
     fillStyles.length = 0;
 
     vi.stubGlobal('Image', MockImage);
@@ -122,6 +142,7 @@ describe('useMapMarkers', () => {
         Marker: MockMarker,
         Size: MockSize,
         Point: MockPoint,
+        Circle: MockCircle,
         SymbolPath: { CIRCLE: 0 },
         marker: {},
         event: { removeListener: vi.fn() },
@@ -186,5 +207,31 @@ describe('useMapMarkers', () => {
       expect.objectContaining({ url: EXTERNAL_URLS.CAT_MARKER_ICON })
     );
     expect(MockImage.instances).toHaveLength(0);
+  });
+
+  it('updates the user marker, accuracy circle, and radius circle', () => {
+    const { updateUserMarker, updateUserRadiusCircle } = useMapMarkers(ref(map as google.maps.Map));
+    const position = { lat: 13.7563, lng: 100.5018 };
+
+    updateUserMarker(position, { accuracy: 25, title: 'Current location' });
+    const marker = MockMarker.instances.at(-1);
+    expect(marker?.options.title).toBe('Current location');
+    expect(MockCircle.instances.at(-1)?.options.radius).toBe(25);
+
+    updateUserMarker(position, { accuracy: 10, stale: true, title: 'Stale location' });
+    expect(marker?.setPosition).toHaveBeenCalledWith(position);
+    expect(marker?.setTitle).toHaveBeenCalledWith('Stale location');
+    expect(MockCircle.instances.at(-1)?.setOptions).toHaveBeenCalled();
+
+    updateUserRadiusCircle(2, position);
+    const radiusCircle = MockCircle.instances.at(-1);
+    expect(radiusCircle?.options.radius).toBe(2000);
+    updateUserRadiusCircle(3, position);
+    expect(radiusCircle?.setOptions).toHaveBeenCalled();
+    updateUserRadiusCircle(null, null);
+    expect(radiusCircle?.setMap).toHaveBeenCalledWith(null);
+
+    updateUserMarker(null);
+    expect(marker?.setMap).toHaveBeenCalledWith(null);
   });
 });

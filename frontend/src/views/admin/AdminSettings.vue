@@ -14,6 +14,7 @@
         </h2>
         <div class="flex items-center gap-2">
             <button
+type="button"
               class="px-3 py-1.5 text-sm font-medium text-brown-600 bg-sand-50 border border-sand-200 rounded-lg hover:bg-sand-100 transition-colors flex items-center gap-2"
               :disabled="loading"
               @click="fetchSettings(true)"
@@ -44,8 +45,9 @@
       class="flex flex-wrap gap-2 mb-8 p-1.5 bg-sand-50/50 rounded-2xl border border-sand-100/50 backdrop-blur-sm"
     >
       <button
-        v-for="cat in navCategories"
+v-for="cat in navCategories"
         :key="cat"
+        type="button"
         class="px-5 py-2 rounded-lg text-xs font-medium transition-all duration-300 uppercase tracking-wider"
         :class="
           activeTab === cat
@@ -145,12 +147,14 @@
 
               <div class="flex gap-2">
                 <button
+type="button"
                   class="px-4 py-2 text-brown-500 hover:text-red-500 hover:bg-red-50 rounded-lg text-sm font-medium transition-all"
                   @click="rejectRequest(req.id)"
                 >
                   {{ t('admin.settings.approval.reject') }}
                 </button>
                 <button
+type="button"
                   class="px-4 py-2 bg-terracotta-600 hover:bg-terracotta-700 text-white rounded-lg text-sm font-medium shadow-sm transition-all"
                   @click="approveRequest(req.id)"
                 >
@@ -180,6 +184,7 @@
                     {{ t(`admin.settings.labels.${config.key}`, config.key) }}
                   </h3>
                   <button
+type="button"
                     class="p-1.5 text-brown-300 hover:text-brown-600 hover:bg-sand-50 rounded-lg transition-all"
                     @click="showHistory(config.key)"
                   >
@@ -226,6 +231,12 @@
             <div class="mt-6 flex flex-col sm:flex-row items-end sm:items-center gap-4">
               <!-- Dynamic Input -->
               <div class="w-full flex-1">
+                <p
+                  v-if="config.is_encrypted"
+                  class="mb-2 text-xs text-brown-500"
+                >
+                  {{ t('admin.settings.encrypted_placeholder', 'Stored secret is hidden. Enter a new value to replace it.') }}
+                </p>
                 <template v-if="config.type === 'boolean'">
                   <div
                     class="flex items-center justify-between p-3.5 bg-sand-50/50 rounded-xl border border-sand-100"
@@ -235,8 +246,15 @@
                         ? t('common.enabled')
                         : t('common.disabled')
                     }}</span>
-                    <label class="relative inline-flex items-center cursor-pointer">
+                    <label
+                      :for="`setting-${config.key}`"
+                      class="relative inline-flex items-center cursor-pointer"
+                    >
+                      <span class="sr-only">
+                        {{ t(`admin.settings.labels.${config.key}`, config.key) }}
+                      </span>
                       <input
+                        :id="`setting-${config.key}`"
                         v-model="editValues[config.key]"
                         type="checkbox"
                         class="sr-only peer"
@@ -251,7 +269,11 @@
 
                 <template v-else-if="config.type === 'integer' || config.type === 'float'">
                   <div class="relative">
+                    <label :for="`setting-${config.key}`" class="sr-only">
+                      {{ t(`admin.settings.labels.${config.key}`, config.key) }}
+                    </label>
                     <input
+                      :id="`setting-${config.key}`"
                       v-model.number="editValues[config.key]"
                       type="number"
                       class="w-full px-4 py-2.5 bg-white border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-all text-brown-800 font-medium outline-none"
@@ -261,7 +283,11 @@
                 </template>
 
                 <template v-else-if="config.type === 'json'">
+                  <label :for="`setting-${config.key}`" class="sr-only">
+                    {{ t(`admin.settings.labels.${config.key}`, config.key) }}
+                  </label>
                   <textarea
+                    :id="`setting-${config.key}`"
                     :value="getEditValue(config.key)"
                     rows="4"
                     class="w-full px-4 py-2.5 bg-brown-900 text-sand-50 border-none rounded-lg focus:ring-2 focus:ring-terracotta-500/30 transition-all font-mono text-xs outline-none"
@@ -270,9 +296,15 @@
                 </template>
 
                 <template v-else>
+                  <label :for="`setting-${config.key}`" class="sr-only">
+                    {{ t(`admin.settings.labels.${config.key}`, config.key) }}
+                  </label>
                   <input
+                    :id="`setting-${config.key}`"
                     v-model="editValues[config.key]"
-                    type="text"
+                    :type="config.is_encrypted ? 'password' : 'text'"
+                    :autocomplete="config.is_encrypted ? 'new-password' : undefined"
+                    :placeholder="config.is_encrypted ? t('admin.settings.encrypted_input', 'Enter a replacement value') : undefined"
                     class="w-full px-4 py-2.5 bg-white border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-all text-brown-800 font-medium outline-none"
                     @input="markDirty(config.key)"
                   />
@@ -281,7 +313,8 @@
 
               <div class="flex gap-2 min-w-fit">
                 <button
-                  v-if="dirtyKeys.has(config.key)"
+v-if="dirtyKeys.has(config.key)"
+                  type="button"
                   class="p-2 text-brown-400 hover:text-red-500 bg-sand-50 hover:bg-red-50 rounded-lg border border-sand-300 transition-colors"
                   @click="resetSetting(config.key)"
                 >
@@ -301,7 +334,8 @@
                   </svg>
                 </button>
                 <button
-                  v-if="dirtyKeys.has(config.key)"
+v-if="dirtyKeys.has(config.key)"
+                  type="button"
                   :disabled="saving === config.key"
                   class="px-4 py-2 bg-terracotta-600 hover:bg-terracotta-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2"
                   @click="saveSetting(config.key)"
@@ -369,6 +403,7 @@
               <span class="text-brown-500 font-mono text-sm">#{{ historyKey }}</span>
             </h3>
             <button
+type="button"
               class="text-brown-400 hover:text-brown-600 p-2 hover:bg-sand-100 rounded-full transition-all"
               @click="historyKey = null"
             >
@@ -456,7 +491,11 @@
       @confirm="confirmReject"
     >
       <div class="mt-4">
+        <label for="rejection-reason" class="sr-only">
+          {{ t('admin.settings.approval.reason_prompt') }}
+        </label>
         <textarea
+          id="rejection-reason"
           v-model="rejectionReason"
           class="w-full px-4 py-2.5 bg-white border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-colors text-brown-800 font-medium"
           :placeholder="t('admin.settings.approval.reason_placeholder')"
@@ -638,6 +677,9 @@ const saveSetting = async (key: string): Promise<void> => {
       settings.value = settings.value.map((configItem) =>
         configItem.key === key ? updatedConfig : configItem
       );
+      if (config.is_encrypted) {
+        editValues.value[key] = null;
+      }
       dirtyKeys.value.delete(key);
       toast({ description: t('admin.settings.save_success'), variant: 'success' });
     }

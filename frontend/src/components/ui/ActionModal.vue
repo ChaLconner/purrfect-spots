@@ -33,12 +33,14 @@ const close = (): void => {
 
     <div class="flex justify-end gap-3 mt-6">
       <button
+type="button"
         class="px-4 py-2 border border-sand-300 rounded-xl text-brown hover:bg-sand-100 transition-colors font-medium cursor-pointer"
         @click="close"
       >
         {{ cancelText || 'Cancel' }}
       </button>
       <button
+type="button"
         class="px-4 py-2 rounded-xl text-white font-bold transition-all cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         :class="confirmButtonClass || 'bg-terracotta hover:bg-terracotta-dark'"
         :disabled="disableConfirm"

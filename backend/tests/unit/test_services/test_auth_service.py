@@ -109,7 +109,7 @@ class TestAuthService:
 
             with patch("app.services.auth.password_mixin.get_token_service") as mock_ts_getter:
                 mock_token_service = MagicMock()
-                mock_token_service.blacklist_all_user_tokens = AsyncMock(return_value=None)
+                mock_token_service.blacklist_all_user_tokens = AsyncMock(return_value=1)
                 mock_ts_getter.return_value = mock_token_service
 
                 # Mock email service

@@ -26,7 +26,7 @@ backend/
 ### 1. Install Dependencies
 ```bash
 cd backend
-pip install -r requirements.txt
+pip install -r requirements.txt -c requirements.lock
 ```
 
 ### 2. Set Environment Variables
@@ -94,6 +94,17 @@ worker. Keep the queue flags disabled there until `app.worker` is deployed on
 a long-lived host with the same `QUEUE_REDIS_URL`; then create the Stripe
 event destination for `/api/v1/subscription/webhook` and configure the
 generated signing secret in the runtime environment.
+
+Dead-letter entries intentionally retain only provider/job identifiers, a
+bounded failure reason, and timestamps. They never contain Stripe event
+payloads or image bytes, so replay is performed from the source system rather
+than by rehydrating sensitive Redis data. Operators can inspect the retained
+metadata from the worker host:
+
+```bash
+python -m scripts.inspect_dead_letters --stream stripe --count 100
+python -m scripts.inspect_dead_letters --stream vision --count 100
+```
 
 ## 📋 API Endpoints
 

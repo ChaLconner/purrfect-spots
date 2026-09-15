@@ -73,6 +73,7 @@ from app.utils.exceptions import PurrfectSpotsException
 SENTRY_DSN = config.SENTRY_DSN
 ENVIRONMENT = config.ENVIRONMENT
 CONTENT_TYPE_JSON = "application/json"
+EventDict = dict[str, Any]
 IS_TEST_ENV = (
     ENVIRONMENT.lower() in {"test", "testing"} or bool(os.getenv("PYTEST_CURRENT_TEST")) or "pytest" in sys.modules
 )
@@ -85,80 +86,100 @@ def _env_flag(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _drop_sentry_exception(hint: Any) -> bool:
+    if "exc_info" not in hint:
+        return False
+
+    _, exc_value, _ = hint["exc_info"]
+    if isinstance(exc_value, (asyncio.CancelledError, KeyboardInterrupt)):
+        return True
+    status_code = getattr(exc_value, "status_code", None)
+    return isinstance(status_code, int) and status_code < 500
+
+
+def _drop_synthetic_sentry_event(event: Any, event_dict: EventDict) -> bool:
+    message_obj = event_dict.get("logentry", {}).get("message", "") or event_dict.get("message", "")
+    message = str(message_obj)
+    noise_patterns = (
+        "CancelledError",
+        "KeyboardInterrupt",
+        "error while attempting to bind on address",
+        "WinError 10048",
+        "Errno 10048",
+        "MagicMock",
+        "testclient",
+        "Event loop is closed",
+        "SECURITY_EVENT:",
+    )
+    if any(pattern in message for pattern in noise_patterns):
+        return True
+
+    request = cast(EventDict, event_dict.get("request", {}) or {})
+    headers = cast(EventDict, request.get("headers", {}) or {})
+    user_agent = str(headers.get("User-Agent", headers.get("user-agent", "")))
+    url = str(request.get("url", ""))
+    if "testclient" in user_agent.lower() or url.startswith(
+        "http://test"
+    ):  # NOSONAR python:S5332 - synthetic test URL filter
+        return True
+
+    serialized_event = str(event)
+    return "00000000-0000-4000-" in serialized_event or "MagicMock" in serialized_event
+
+
+def _redact_sentry_request(event_dict: EventDict) -> None:
+    request = cast(EventDict, event_dict.get("request", {}) or {})
+    headers = request.get("headers")
+    if not isinstance(headers, dict):
+        return
+    sensitive_headers = {"authorization", "cookie", "set-cookie", "x-csrf-token", "x-api-key"}
+    request["headers"] = {
+        key: ("[REDACTED]" if key.lower() in sensitive_headers else value) for key, value in headers.items()
+    }
+
+
+def _redact_sentry_user(event_dict: EventDict) -> None:
+    user = event_dict.get("user")
+    if not isinstance(user, dict):
+        return
+    for field in ("email", "ip_address", "username"):
+        if field in user:
+            user[field] = "[REDACTED]"
+
+
+def _redact_sentry_breadcrumbs(event_dict: EventDict) -> None:
+    breadcrumbs = event_dict.get("breadcrumbs")
+    if not isinstance(breadcrumbs, dict):
+        return
+    for breadcrumb in cast(list[EventDict], breadcrumbs.get("values", [])):
+        if breadcrumb.get("category") not in ("query", "http"):
+            continue
+        data = cast(EventDict, breadcrumb.get("data", {}))
+        if "query" in data:
+            data["query"] = "[REDACTED_QUERY]"
+        if "url" in data:
+            url_parts = str(data["url"]).split("?")
+            if len(url_parts) > 1:
+                data["url"] = url_parts[0] + "?[REDACTED_PARAMS]"
+
+
+def _redact_sentry_event(event_dict: EventDict) -> None:
+    _redact_sentry_request(event_dict)
+    _redact_sentry_user(event_dict)
+    _redact_sentry_breadcrumbs(event_dict)
+
+
 if SENTRY_DSN and not IS_TEST_ENV:
 
     def before_send(event: Any, hint: Any) -> Any:
-        # Filter exceptions by type (when exc_info is available)
-        if "exc_info" in hint:
-            exc_type, exc_value, tb = hint["exc_info"]
-            if isinstance(exc_value, (asyncio.CancelledError, KeyboardInterrupt)):
-                return None
-            status_code = getattr(exc_value, "status_code", None)
-            if isinstance(status_code, int) and status_code < 500:
-                return None
-
-        # Filter by log message for errors that come through without exc_info
-        # (e.g., starlette lifespan shutdown, port binding conflicts)
-        event_dict = cast("dict[str, Any]", event)
-        message_obj = event_dict.get("logentry", {}).get("message", "") or event_dict.get("message", "")
-        message = str(message_obj)
-        noise_patterns = [
-            "CancelledError",
-            "KeyboardInterrupt",
-            "error while attempting to bind on address",
-            "WinError 10048",
-            "Errno 10048",
-            "MagicMock",
-            "testclient",
-            "Event loop is closed",
-            "SECURITY_EVENT:",
-        ]
-        if any(pattern in message for pattern in noise_patterns):
+        if _drop_sentry_exception(hint):
             return None
 
-        request = cast("dict[str, Any]", event_dict.get("request", {}) or {})
-        headers = cast("dict[str, Any]", request.get("headers", {}) or {})
-        user_agent = str(headers.get("User-Agent", headers.get("user-agent", "")))
-        url = str(request.get("url", ""))
-        if "testclient" in user_agent.lower() or url.startswith("http://test"):
+        event_dict = cast(EventDict, event)
+        if _drop_synthetic_sentry_event(event, event_dict):
             return None
 
-        # Filter known synthetic test IDs and mock failures that should never
-        # pollute real project monitoring.
-        serialized_event = str(event)
-        if "00000000-0000-4000-" in serialized_event or "MagicMock" in serialized_event:
-            return None
-
-        # SEC-04: Strip PII and sensitive tokens from Sentry reports
-        # 1. Strip sensitive headers
-        if "headers" in request:
-            sensitive_headers = {"authorization", "cookie", "set-cookie", "x-csrf-token", "x-api-key"}
-            request["headers"] = {
-                k: ("[REDACTED]" if k.lower() in sensitive_headers else v) for k, v in request["headers"].items()
-            }
-
-        # 2. Strip sensitive user data
-        if "user" in event_dict:
-            user = cast("dict[str, Any]", event_dict["user"])
-            for field in ["email", "ip_address", "username"]:
-                if field in user:
-                    user[field] = "[REDACTED]"
-
-        # 3. Scrub breadcrumbs (e.g. SQL queries or API calls that might have PII)
-        if "breadcrumbs" in event_dict:
-            breadcrumbs = cast("dict[str, Any]", event_dict["breadcrumbs"])
-            for breadcrumb in cast("list[dict[str, Any]]", breadcrumbs.get("values", [])):
-                if breadcrumb.get("category") in ("query", "http"):
-                    data = cast("dict[str, Any]", breadcrumb.get("data", {}))
-                    if "query" in data:
-                        # Basic SQL redaction - can be improved but good start
-                        data["query"] = "[REDACTED_QUERY]"
-                    if "url" in data:
-                        # Remove query params from URLs in breadcrumbs
-                        url_parts = str(data["url"]).split("?")
-                        if len(url_parts) > 1:
-                            data["url"] = url_parts[0] + "?[REDACTED_PARAMS]"
-
+        _redact_sentry_event(event_dict)
         return event
 
     sentry_logging = LoggingIntegration(
@@ -315,12 +336,12 @@ app.add_exception_handler(RateLimitExceeded, cast(ExceptionHandler, _rate_limit_
 
 
 # ========== Exception Handlers ==========
-def cancelled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+def cancelled_error_handler(request: Request, _exc: Exception) -> JSONResponse:
     logger.info("Operation cancelled: %s", request.url.path)
     return JSONResponse(status_code=499, content={"detail": "Request cancelled"})
 
 
-def keyboard_interrupt_handler(request: Request, exc: Exception) -> JSONResponse:
+def keyboard_interrupt_handler(_request: Request, _exc: Exception) -> JSONResponse:
     logger.info("Server shutting down...")
     return JSONResponse(status_code=503, content={"detail": "Service shutting down"})
 
@@ -338,7 +359,7 @@ logger.info("CORS allowed origins: %s", allowed_origins)
 
 # ========== Health Check Endpoints ==========
 @app.get("/")
-async def root() -> JSONResponse:
+def root() -> JSONResponse:
     """Root endpoint"""
     return JSONResponse(
         content={
@@ -354,7 +375,7 @@ async def root() -> JSONResponse:
 # ========== Favicon Routes (to prevent 404 noise) ==========
 @app.get("/favicon.ico", include_in_schema=False)
 @app.get("/favicon.png", include_in_schema=False)
-async def favicon() -> Response:
+def favicon() -> Response:
     """Handle favicon requests to prevent 404 security event logs."""
     return Response(status_code=204)
 

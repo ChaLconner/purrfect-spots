@@ -1,5 +1,7 @@
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
+import jwt
 from sqlalchemy import text
 
 from app.compat import structlog
@@ -55,6 +57,39 @@ class AuthPasswordMixin(AuthBaseMixin):
                 raise ValueError("Invalid user session")
 
             user_id = user_res.user.id
+            # get_user verified this exact JWT with the provider. Only a recent
+            # recovery event may authorize this unauthenticated password endpoint.
+            claims = jwt.decode(
+                access_token,
+                options={
+                    "verify_signature": False,  # nosemgrep: python.jwt.security.unverified-jwt-decode.unverified-jwt-decode
+                    "verify_exp": True,
+                    "verify_iat": True,
+                    "require": ["sub", "iat", "exp", "session_id"],
+                },
+            )
+            if claims["sub"] != str(user_id):
+                return False
+            recovery_times: list[float] = []
+            for entry in claims.get("amr", []):
+                if not isinstance(entry, dict) or entry.get("method") != "recovery":
+                    continue
+                timestamp = entry.get("timestamp")
+                if isinstance(timestamp, (int, float)) and not isinstance(timestamp, bool):
+                    recovery_times.append(float(timestamp))
+            if not recovery_times:
+                return False
+            recovered_at = datetime.fromtimestamp(max(recovery_times), UTC)
+            now = utc_now()
+            if not timedelta(0) <= now - recovered_at <= timedelta(hours=1):
+                return False
+            ts = await get_token_service(self.db)
+            if await ts.is_user_invalidated(user_id, recovered_at):
+                return False
+            if not await ts.consume_refresh_token(
+                f"recovery:{claims['session_id']}", user_id, now + timedelta(days=config.JWT_REFRESH_EXPIRATION_DAYS)
+            ):
+                return False
             admin = await self._get_admin_client()
             await admin.auth.admin.update_user_by_id(user_id, {"password": new_password})
 
@@ -65,9 +100,9 @@ class AuthPasswordMixin(AuthBaseMixin):
             else:
                 await admin.table("users").update({"updated_at": utc_now().isoformat()}).eq("id", user_id).execute()
 
+            if not await ts.blacklist_all_user_tokens(user_id, reason="password_reset"):
+                raise RuntimeError("Unable to invalidate existing sessions")
             if user_res.user.email:
-                ts = await get_token_service()
-                await ts.blacklist_all_user_tokens(user_id, reason="password_reset")
                 email_service.send_password_changed_email(user_res.user.email)
             return True
         except Exception as e:
@@ -93,8 +128,9 @@ class AuthPasswordMixin(AuthBaseMixin):
             admin = await self._get_admin_client()
             await admin.auth.admin.update_user_by_id(user_id, {"password": new_password})
 
-            ts = await get_token_service()
-            await ts.blacklist_all_user_tokens(user_id, reason="password_change")
+            ts = await get_token_service(self.db)
+            if not await ts.blacklist_all_user_tokens(user_id, reason="password_change"):
+                raise RuntimeError("Unable to invalidate existing sessions")
             email_service.send_password_changed_email(user.email)
             return True
         except Exception as e:

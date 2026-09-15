@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, cast
 
-from fastapi import Query, Request
+from fastapi import Query
 
 
 class CommonPagination:
@@ -21,6 +21,17 @@ class CommonPagination:
 
 from app.utils.audit_logger import log_admin_action
 
+ADMIN_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    400: {"description": "Invalid request"},
+    401: {"description": "Authentication required"},
+    403: {"description": "Insufficient permissions"},
+    404: {"description": "Resource not found"},
+    409: {"description": "Request conflicts with current state"},
+    429: {"description": "Rate limit exceeded"},
+    500: {"description": "Internal server error"},
+    503: {"description": "Service temporarily unavailable"},
+}
+
 
 async def create_admin_audit_log(
     admin_client: Any,
@@ -29,7 +40,6 @@ async def create_admin_audit_log(
     resource: str,
     changes: dict[str, Any],
     target_id: str = "",
-    request: Request | None = None,
 ) -> None:
     """Utility function to create audit log records for admin actions."""
     await log_admin_action(

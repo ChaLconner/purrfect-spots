@@ -19,8 +19,9 @@ export function base64URLEncode(array: Uint8Array): string {
 export async function getGoogleAuthUrl(
   clientId: string,
   redirectUri: string
-): Promise<{ url: string; codeVerifier: string }> {
+): Promise<{ url: string; codeVerifier: string; state: string }> {
   const codeVerifier = generateCodeVerifier();
+  const state = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
 
   const oauthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
@@ -32,9 +33,11 @@ export async function getGoogleAuthUrl(
   oauthUrl.searchParams.append('code_challenge_method', 'S256');
   oauthUrl.searchParams.append('access_type', 'offline');
   oauthUrl.searchParams.append('prompt', 'consent');
+  oauthUrl.searchParams.append('state', state);
 
   return {
     url: oauthUrl.toString(),
     codeVerifier,
+    state,
   };
 }

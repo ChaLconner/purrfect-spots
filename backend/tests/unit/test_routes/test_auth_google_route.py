@@ -57,7 +57,7 @@ class TestGoogleAuthRoutes:
         mock_service.exchange_google_code = AsyncMock(return_value=mock_login_response_obj)
         mock_service.create_refresh_token.return_value = "refresh"
 
-        app.dependency_overrides[get_auth_service] = lambda: mock_service
+        app.dependency_overrides.update({get_auth_service: lambda: mock_service})
 
         with patch("app.routes.auth.config") as mock_config:
             mock_config.get_allowed_origins.return_value = [
@@ -73,7 +73,7 @@ class TestGoogleAuthRoutes:
             }
             response = await client.post("/api/v1/auth/google/exchange", json=payload)
 
-            app.dependency_overrides = {}
+            app.dependency_overrides.clear()
 
             assert response.status_code == 200, f"Response: {response.text}"
             assert response.json()["access_token"] == "access"
@@ -94,14 +94,14 @@ class TestGoogleAuthRoutes:
 
         with patch("app.dependencies.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
             mock_get_admin.return_value = mock_supabase_admin
-            app.dependency_overrides[get_current_user_from_header] = lambda: mock_jwt_payload
+            app.dependency_overrides.update({get_current_user_from_header: lambda: mock_jwt_payload})
 
             response = await client.post("/api/v1/auth/sync-user")
 
             assert response.status_code == 200
             assert response.json()["message"] == "User synced"
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
     async def test_sync_user_data_drops_unapproved_avatar(self, client):
         """JWT metadata cannot persist an attacker-controlled avatar URL."""
@@ -119,12 +119,12 @@ class TestGoogleAuthRoutes:
 
         with patch("app.dependencies.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
             mock_get_admin.return_value = mock_supabase_admin
-            app.dependency_overrides[get_current_user_from_header] = lambda: mock_jwt_payload
+            app.dependency_overrides.update({get_current_user_from_header: lambda: mock_jwt_payload})
 
             response = await client.post("/api/v1/auth/sync-user")
 
         upsert_payload = mock_supabase_admin.table.return_value.upsert.call_args.args[0]
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         assert "picture" not in upsert_payload

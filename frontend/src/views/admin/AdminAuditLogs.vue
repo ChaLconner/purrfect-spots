@@ -80,7 +80,7 @@
               {{ log.resource }}
             </td>
             <td class="px-6 py-4 text-sm border-b border-sand-200 text-[#6a5a53]">
-              <button class="font-medium text-indigo-600 transition-colors hover:text-indigo-900" @click="viewDetails(log)">
+              <button type="button" class="font-medium text-indigo-600 transition-colors hover:text-indigo-900" @click="viewDetails(log)">
                 {{ t('common.viewDetails') }}
               </button>
             </td>
@@ -117,7 +117,7 @@
       <div class="w-full max-w-2xl p-6 bg-white rounded-xl shadow-2xl" @click.stop>
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-bold text-[#2f231f]">{{ t('admin.audit.modal.title') }}</h3>
-          <button class="text-gray-400 transition-colors hover:text-gray-600" @click="selectedLog = null">
+          <button type="button" class="text-gray-400 transition-colors hover:text-gray-600" @click="selectedLog = null">
             <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 stroke-linecap="round"
@@ -160,6 +160,7 @@
             <div class="group relative max-h-96 overflow-auto rounded-lg bg-gray-50 p-4 font-mono text-xs">
               <pre>{{ JSON.stringify(selectedLog.changes, null, 2) }}</pre>
               <button
+type="button"
                 class="absolute top-2 right-2 p-1 bg-white border border-gray-200 rounded shadow-sm opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-50"
                 :title="t('common.copyJson')"
                 @click="copyToClipboard(JSON.stringify(selectedLog.changes, null, 2))"

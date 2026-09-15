@@ -45,6 +45,8 @@ class TreatsService:
         self, from_user_id: str, photo_id: str, amount: int, jwt_token: str | None = None
     ) -> dict[str, Any]:
         """Give treats to a photo owner (fully atomic via DB RPC)."""
+        # Kept for compatibility with callers from before service auth moved to the route.
+        del jwt_token
         try:
             if self.db:
                 result = await self._give_treat_sql(from_user_id, photo_id, amount)

@@ -10,7 +10,7 @@ from typing import Any, cast
 import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jwt.algorithms import RSAAlgorithm
+from jwt import PyJWK
 from supabase import AClient
 
 from app.config import config, normalize_single_line_env
@@ -38,6 +38,18 @@ _jwks_state: dict[str, float] = {"last_update": 0.0}
 _jwks_lock = asyncio.Lock()
 JWKS_CACHE_TTL = 3600  # 1 hour
 _user_auth_refresh_tasks: dict[str, asyncio.Task[User]] = {}
+_background_user_auth_refresh_tasks: set[asyncio.Task[User]] = set()
+
+
+def _finish_background_user_auth_refresh(task: asyncio.Task[User]) -> None:
+    """Retain background refresh tasks until completion and consume failures."""
+    _background_user_auth_refresh_tasks.discard(task)
+    if task.cancelled():
+        return
+    try:
+        task.result()
+    except Exception:
+        logger.warning("Background user auth cache refresh failed", exc_info=True)
 
 
 def get_user_auth_cache_key(user_id: str) -> str:
@@ -152,10 +164,20 @@ async def decode_supabase_token(token: str) -> dict:
         if not key:
             raise ValueError(f"Key with kid '{kid}' not found in JWKS")
 
-        public_key = RSAAlgorithm.from_jwk(key)
-        return jwt.decode(token, cast(Any, public_key), algorithms=["RS256"], audience="authenticated")
+        algorithm = unverified_header.get("alg")
+        if algorithm not in ("RS256", "ES256"):
+            raise ValueError("Unsupported signing algorithm")
+        public_key = PyJWK.from_dict(key, algorithm=algorithm).key
+        return jwt.decode(
+            token,
+            public_key,
+            algorithms=[algorithm],
+            audience="authenticated",
+            issuer=f"{normalize_single_line_env(config.SUPABASE_URL).rstrip('/')}/auth/v1",
+            options={"require": ["exp", "iat", "sub"]},
+        )
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Invalid Supabase token: {e!s}")
+        raise HTTPException(status_code=401, detail="Invalid Supabase token") from e
 
 
 # decode_custom_token removed - replaced by utils.auth_utils.decode_token in _attempt_token_decoding
@@ -178,7 +200,7 @@ async def _is_token_revoked(jti: str) -> bool:
         return True
 
 
-async def _get_user_from_payload(payload: dict, source: str) -> User:
+async def _get_user_from_payload(payload: dict, _source: str) -> User:
     """Helper to convert JWT payload to User object"""
     user_id = payload.get("sub") or payload.get("user_id")
     if not user_id:
@@ -211,7 +233,9 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
 
         # If we need refresh but have stale data, we return stale data immediately
         # and refresh in background to avoid blocking the request
-        asyncio.create_task(_refresh_user_auth_cache(user_id, cache_key, current_time))
+        refresh_task = asyncio.create_task(_refresh_user_auth_cache(user_id, cache_key, current_time))
+        _background_user_auth_refresh_tasks.add(refresh_task)
+        refresh_task.add_done_callback(_finish_background_user_auth_refresh)
         return _assert_user_not_banned(cached_user)
 
     # Cache miss - block and fetch
@@ -282,7 +306,7 @@ def require_permission(permission_code: str) -> Any:
     """Dependency factory to check for specific permission"""
     required_permission = normalize_permission_code(permission_code) or permission_code
 
-    async def permission_checker(request: Request, user: User = Depends(get_current_user)) -> User:
+    def permission_checker(request: Request, user: User = Depends(get_current_user)) -> User:
         user_permissions = set(normalize_permissions(user.permissions))
 
         # 1. Direct permission check
@@ -318,6 +342,19 @@ async def _verify_via_supabase_api(token: str, supabase: AClient) -> dict | None
         user_res = await supabase.auth.get_user(token)
         if user_res and user_res.user:
             supabase_user = user_res.user
+            # The Auth server has verified this exact token. Preserve its signed
+            # issue time so password-change revocation cannot be bypassed.
+            payload = jwt.decode(
+                token,
+                options={
+                    "verify_signature": False,  # nosemgrep: python.jwt.security.unverified-jwt-decode.unverified-jwt-decode
+                    "verify_exp": True,
+                    "verify_iat": True,
+                    "require": ["exp", "iat", "sub"],
+                },
+            )
+            if payload["sub"] != str(supabase_user.id):
+                return None
             logger.info("Authentication verified via direct Supabase Auth API")
             return {
                 "sub": supabase_user.id,
@@ -325,7 +362,10 @@ async def _verify_via_supabase_api(token: str, supabase: AClient) -> dict | None
                 "email": supabase_user.email,
                 "user_metadata": supabase_user.user_metadata,
                 "app_metadata": supabase_user.app_metadata,
-                "iat": int(datetime.now(UTC).timestamp()),
+                "iat": payload["iat"],
+                "exp": payload["exp"],
+                "jti": payload.get("jti"),
+                "amr": payload.get("amr", []),
             }
     except Exception as api_err:
         logger.debug("Direct Supabase verification failed: %s", api_err)
@@ -343,7 +383,7 @@ async def _attempt_token_decoding(token: str, supabase: AClient | None) -> tuple
         payload = await decode_supabase_token(token)
         logger.debug("Token decoded successfully using Supabase JWKS")
         return payload, "supabase"
-    except (HTTPException, ValueError):
+    except HTTPException, ValueError:
         logger.debug("Supabase token decoding attempted but failed")
 
     # 2. Try Standard JWT Decoding (Supabase Key or Custom Secret)
@@ -373,6 +413,13 @@ async def _attempt_token_decoding(token: str, supabase: AClient | None) -> tuple
 
 async def _validate_token_security(payload: dict) -> None:
     """Run security checks on decoded token payload"""
+    if payload.get("type") not in (None, "access") or not payload.get("sub"):
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    if not isinstance(payload.get("iat"), (int, float)) or isinstance(payload.get("iat"), bool):
+        raise HTTPException(status_code=401, detail="Invalid token issue time")
+    amr = payload.get("amr")
+    if isinstance(amr, list) and any(isinstance(entry, dict) and entry.get("method") == "recovery" for entry in amr):
+        raise HTTPException(status_code=401, detail="Recovery session cannot access application resources")
     # 1. Check JTI Revocation (Blocklist)
     jti = payload.get("jti")
     if jti and await _is_token_revoked(jti):

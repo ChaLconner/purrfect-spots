@@ -70,7 +70,9 @@ const clearSearch = (): void => {
   <div
     class="group/search relative flex items-center gap-1.5 sm:gap-2 bg-btn-shade-e border-2 border-btn-shade-a rounded-full py-[0.35rem] pr-[0.35rem] pl-3 sm:pl-5 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] w-full max-w-[400px] shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.25em_0_0_var(--color-btn-shade-a)] focus-within:bg-white focus-within:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.35em_0_0_var(--color-btn-shade-a)] focus-within:-translate-y-0.5 preserve-3d"
   >
+    <label for="navbar-search" class="sr-only">{{ $t('common.search') }}</label>
     <input
+      id="navbar-search"
       v-model="searchQuery"
       type="text"
       :placeholder="$t('galleryPage.searchPlaceholder')"
@@ -79,7 +81,8 @@ const clearSearch = (): void => {
       @keyup.enter="handleSearch"
     />
     <button
-      v-if="searchQuery"
+v-if="searchQuery"
+      type="button"
       class="group relative w-8 h-8 rounded-full border-2 cursor-pointer flex items-center justify-center transition-all duration-[175ms] ease-[cubic-bezier(0,0,1,1)] shrink-0 active:translate-y-[0.2em] hover:translate-y-[0.1em] bg-[#ffcccc] border-[#dc4a4a] text-[#dc4a4a] hover:bg-[#ffbbbb] preserve-3d"
       :aria-label="$t('accessibility.clearSearch')"
       @click="clearSearch"
@@ -104,7 +107,8 @@ const clearSearch = (): void => {
       </svg>
     </button>
     <button
-      v-else
+v-else
+      type="button"
       class="group relative w-8 h-8 rounded-full border-2 cursor-pointer flex items-center justify-center transition-all duration-[175ms] ease-[cubic-bezier(0,0,1,1)] shrink-0 active:translate-y-[0.2em] hover:translate-y-[0.1em] bg-btn-shade-d border-btn-shade-a hover:bg-[var(--color-btn-shade-c)] preserve-3d"
       :aria-label="$t('accessibility.search')"
       @click="handleSearch"

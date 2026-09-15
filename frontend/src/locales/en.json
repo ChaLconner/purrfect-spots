@@ -260,7 +260,7 @@
     "updatePassword": "Update Password",
     "rememberPassword": "I remember my password",
     "passwordsDoNotMatch": "Passwords do not match",
-    "passwordMinLength": "Password strength is advisory",
+    "passwordMinLength": "Password must be at least 15 characters",
     "passwordUpdated": "Password updated successfully. Please login.",
     "invalidToken": "Invalid or expired reset link",
     "signInRequired": "Sign in required",
@@ -1084,6 +1084,7 @@
         "resolved": "Resolved",
         "dismissed": "Dismissed",
         "allReasons": "All Reasons",
+        "startDate": "Start Date",
         "endDate": "End Date"
       },
       "reasons": {

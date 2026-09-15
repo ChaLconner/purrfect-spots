@@ -70,12 +70,17 @@ def mock_supabase():
 @pytest.fixture
 def user_service(mock_supabase):
     client, admin = mock_supabase
-    return UserService(supabase_client=client, supabase_admin=admin)
+
+    async def isolated_login(email, password):
+        return await client.auth.sign_in_with_password({"email": email, "password": password})
+
+    with patch("app.services.user.auth_mixin.sign_in_with_password_isolated", new=isolated_login):
+        yield UserService(supabase_client=client, supabase_admin=admin)
 
 
 @pytest.mark.asyncio
-async def test_get_user_role_id(user_service):
-    UserService._cached_user_role_id = None
+async def test_get_user_role_id(user_service, monkeypatch):
+    monkeypatch.setattr(UserService, "_cached_user_role_id", None)
     role_id = await user_service._get_user_role_id()
     assert role_id == "user-role-id"
     # test cached
@@ -150,22 +155,22 @@ async def test_get_user_by_username(user_service):
 
 @pytest.mark.asyncio
 async def test_create_unverified_user(user_service):
-    user = await user_service.create_unverified_user("a@a.com", "ValidPass123!", "A")
+    user = await user_service.create_unverified_user("a@a.com", "valid-test-passphrase", "A")
     assert user["id"] == "1"
 
 
 @pytest.mark.asyncio
-async def test_create_unverified_user_allows_weak_password(user_service):
+async def test_create_unverified_user_allows_password_without_composition_rules(user_service):
     with patch("app.services.password_service.password_service.is_password_pwned", return_value=False):
-        user = await user_service.create_unverified_user("a@a.com", "weakpass", "A")
+        user = await user_service.create_unverified_user("a@a.com", "longpasswordwithoutnumbers", "A")
 
     assert user["id"] == "1"
 
 
 @pytest.mark.asyncio
-async def test_create_or_get_user(user_service):
+async def test_create_or_get_user(user_service, monkeypatch):
     # Because get_user_by_id is called at the end and returns a mapped user
-    UserService._cached_user_role_id = "user-role-id"
+    monkeypatch.setattr(UserService, "_cached_user_role_id", "user-role-id")
     user = await user_service.create_or_get_user({"id": "1", "email": "a@a.com", "name": "A"})
     assert user is not None
 

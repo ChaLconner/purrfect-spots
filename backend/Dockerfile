@@ -5,7 +5,7 @@
 # Base image: Python 3.14.6 slim
 
 # Stage 1: Builder
-FROM python:3.14.6 AS builder
+FROM python:3.14.6@sha256:51570a50616289f78f340811c34ca4384985f9e891819cbe7620f738d6ca8525 AS builder
 
 WORKDIR /build
 
@@ -15,17 +15,17 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for layer caching
-COPY requirements.txt .
+COPY requirements.txt requirements.lock ./
 
 # Install Python dependencies to a virtual environment
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip==26.2.1 && \
+    pip install --no-cache-dir -r requirements.txt --constraint requirements.lock
 
 # Stage 2: Production
-FROM python:3.14.6-slim AS production
+FROM python:3.14.6-slim@sha256:7bec7ddcddeff7975d6ba9b4be7dd6f6b2f55e7491539145e2978f7f97ce9144 AS production
 
 LABEL maintainer="Purrfect Spots Team <support@purrfectspots.com>"
 LABEL description="Purrfect Spots API - Cat location sharing platform"

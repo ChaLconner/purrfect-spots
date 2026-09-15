@@ -83,7 +83,17 @@ def decode_token(token: str) -> dict[str, Any]:
             # We don't enforce audience here by default as Supabase tokens might vary
             # or be used in contexts where audience check is handled elsewhere.
             # However, PyJWT verifies 'aud' claim presence by default.
-            return jwt.decode(token, config.JWT_SECRET, algorithms=["HS256"], options={"verify_aud": False})
+            payload = jwt.decode(
+                token,
+                config.JWT_SECRET,
+                algorithms=["HS256"],
+                audience="purrfect-spots-api",
+                issuer="purrfect-spots",
+                options={"require": ["exp", "iat", "sub", "jti", "type"]},
+            )
+            if payload.get("type") != "access":
+                raise ValueError("Invalid token type")
+            return payload
         except jwt.ExpiredSignatureError:
             raise ValueError("Token has expired")
         except jwt.InvalidTokenError as e:
@@ -122,6 +132,8 @@ def get_client_info(request: Any) -> tuple[str, str]:
 def set_refresh_cookie(response: Any, refresh_token: str) -> None:
     """Set HttpOnly Secure cookie for refresh token"""
     is_prod = config.is_production()
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,

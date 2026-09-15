@@ -10,10 +10,10 @@
       class="fixed inset-0 z-[150] flex justify-end items-stretch bg-black/20 pointer-events-auto"
       @click="$emit('close')"
     >
-      <div
+      <dialog
         ref="modalContainer"
-        class="relative flex flex-col w-full max-w-full sm:max-w-[450px] sm:m-6 h-screen sm:h-[calc(100vh-3rem)] bg-white sm:border sm:border-gray-200 sm:rounded-3xl shadow-[-10px_20px_40px_rgba(0,0,0,0.08)] overflow-hidden"
-        role="dialog"
+        open
+        class="relative flex flex-col w-full max-w-full sm:max-w-[450px] sm:m-6 h-screen sm:h-[calc(100vh-3rem)] border-0 bg-white p-0 sm:border sm:border-gray-200 sm:rounded-3xl shadow-[-10px_20px_40px_rgba(0,0,0,0.08)] overflow-hidden"
         aria-modal="true"
         aria-labelledby="cat-detail-title"
         tabindex="-1"
@@ -22,6 +22,7 @@
       >
         <!-- Close Action (Top Corner) -->
         <button
+type="button"
           class="absolute top-5 right-5 z-20 w-10 h-10 flex items-center justify-center text-white bg-black/20 hover:bg-black/60 backdrop-blur-[4px] rounded-full border-none cursor-pointer drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] transition-all duration-300 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
           :aria-label="t('map.modal.ariaClose')"
           @click="$emit('close')"
@@ -41,7 +42,8 @@
 
         <!-- Report Button (Top Left) -->
         <button
-          v-if="canInteractWithCat"
+v-if="canInteractWithCat"
+          type="button"
           class="report-btn group absolute top-5 left-5 z-20 w-10 h-10 flex items-center justify-center text-white bg-black/20 backdrop-blur-[4px] rounded-full border-none cursor-pointer drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] transition-all duration-300 hover:bg-red-500/80 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
           :aria-label="t('map.modal.ariaReport')"
           :title="t('map.modal.reportTitle')"
@@ -133,8 +135,9 @@
                   <div class="flex-1 flex items-center justify-between gap-3">
                     <div class="flex bg-stone-100 rounded-full p-1 gap-1">
                       <button
-                        v-for="amt in [1, 5, 10]"
+v-for="amt in [1, 5, 10]"
                         :key="amt"
+                        type="button"
                         class="w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wood-brown focus-visible:ring-offset-2 active:scale-95"
                         :class="
                           selectedAmount === amt
@@ -148,7 +151,8 @@
                     </div>
 
                     <button
-                      v-if="canInteractWithCat"
+v-if="canInteractWithCat"
+                      type="button"
                       class="flex-1 min-w-0 h-10 bg-wood-brown hover:bg-wood-dark text-white text-sm font-bold rounded-full shadow-sm transition-all duration-300 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wood-brown focus-visible:ring-offset-2 flex items-center justify-center disabled:opacity-50"
                       :disabled="isSendingTreat"
                       @click="handleGiveTreat"
@@ -170,13 +174,14 @@
 
         <div class="shrink-0 p-5 pt-3 sm:p-8 sm:pt-3 bg-white border-t border-stone-100">
           <button
+type="button"
             class="w-full p-4 bg-wood-brown hover:bg-wood-dark active:translate-y-px active:scale-[0.98] border-none rounded-2xl text-white font-heading text-sm font-bold tracking-widest cursor-pointer transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wood-brown focus-visible:ring-offset-2"
             @click="$emit('get-directions', cat)"
           >
             {{ t('map.modal.getDirections') }}
           </button>
         </div>
-      </div>
+      </dialog>
     </div>
   </transition>
 

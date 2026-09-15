@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from app.constants.security import MIN_PASSWORD_LENGTH
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -13,7 +15,11 @@ class ProfileUpdateRequest(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
-    new_password: str
+    new_password: str = Field(
+        ...,
+        min_length=MIN_PASSWORD_LENGTH,
+        description=f"Password must be at least {MIN_PASSWORD_LENGTH} characters",
+    )
 
 
 class UpdatePhotoRequest(BaseModel):

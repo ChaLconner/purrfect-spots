@@ -2,6 +2,7 @@
 User profile management routes
 """
 
+import re
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Path, Response, UploadFile
@@ -26,6 +27,9 @@ from app.utils.location_utils import protect_photo_locations
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
 
+USER_NOT_FOUND_DETAIL = "User not found"
+PUBLIC_PROFILE_CACHE_CONTROL = "public, max-age=60"
+
 
 from app.schemas.profile import (
     AccountDeletionResponse,
@@ -49,12 +53,76 @@ from app.services.storage_service import StorageService
 # Services are now imported from dependencies
 
 
-# local function removed
+def _build_profile_update_data(profile_data: ProfileUpdateRequest) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in {
+            "name": profile_data.name,
+            "username": profile_data.username,
+            "bio": profile_data.bio,
+            "picture": profile_data.picture,
+        }.items()
+        if value is not None
+    }
+
+
+def _validate_profile_picture(update_data: dict[str, Any]) -> None:
+    if "picture" not in update_data:
+        return
+
+    from app.utils.avatar import validate_avatar_url
+
+    try:
+        validated_picture = validate_avatar_url(update_data["picture"])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if validated_picture is None:
+        raise HTTPException(status_code=400, detail="Avatar URL cannot be null in this update")
+    update_data["picture"] = validated_picture
+
+
+async def _validate_profile_username(
+    update_data: dict[str, Any], current_user: User, auth_service: AuthService
+) -> None:
+    if "username" not in update_data:
+        return
+
+    username = update_data["username"]
+    if not re.match(r"^(?a:\w){3,30}$", username):
+        raise HTTPException(
+            status_code=400,
+            detail="Username must be 3-30 characters and contain only letters, numbers, and underscores",
+        )
+    if username.lower() == (current_user.username or "").lower():
+        return
+
+    existing_user = await auth_service.user_service.get_user_by_username(username)
+    if existing_user:
+        raise HTTPException(status_code=409, detail="Username already taken")
+
+
+async def _prepare_profile_update(
+    profile_data: ProfileUpdateRequest,
+    current_user: User,
+    auth_service: AuthService,
+) -> dict[str, Any]:
+    from app.utils.security import sanitize_text
+
+    update_data = _build_profile_update_data(profile_data)
+    _validate_profile_picture(update_data)
+
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No data provided for update")
+    if "name" in update_data:
+        update_data["name"] = sanitize_text(update_data["name"], max_length=100)
+    await _validate_profile_username(update_data, current_user, auth_service)
+    if update_data.get("bio"):
+        update_data["bio"] = sanitize_text(update_data["bio"], max_length=500)
+    return update_data
 
 
 @router.put(
     "",
-    response_model=ProfileUpdateResponse,
     responses={
         400: {"description": "Bad Request"},
         404: {"description": "Not Found"},
@@ -79,59 +147,11 @@ async def update_profile(
         HTTPException: 500 - If profile update fails.
     """
     try:
-        # Prepare update data
-        update_data = {}
-        if profile_data.name is not None:
-            update_data["name"] = profile_data.name
-        if profile_data.username is not None:
-            update_data["username"] = profile_data.username
-        if profile_data.bio is not None:
-            update_data["bio"] = profile_data.bio
-        if profile_data.picture is not None:
-            from app.utils.avatar import validate_avatar_url
-
-            try:
-                validated_picture = validate_avatar_url(profile_data.picture)
-                if validated_picture is None:
-                    raise ValueError("Avatar URL cannot be null in this update")
-                update_data["picture"] = validated_picture
-            except ValueError as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-        if not update_data:
-            raise HTTPException(status_code=400, detail="No data provided for update")
-
-        # Sanitize inputs
-        from app.utils.security import sanitize_text
-
-        if "name" in update_data:
-            update_data["name"] = sanitize_text(update_data["name"], max_length=100)
-
-        if "username" in update_data:
-            username = update_data["username"]
-            # Validate username format (alphanumeric + underscore, min 3 chars)
-            import re
-
-            if not re.match(r"^[a-zA-Z0-9_]{3,30}$", username):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Username must be 3-30 characters and contain only letters, numbers, and underscores",
-                )
-
-            # Check for uniqueness if username changed (case-insensitive)
-            if username.lower() != (current_user.username or "").lower():
-                existing_user = await auth_service.user_service.get_user_by_username(username)
-                if existing_user:
-                    raise HTTPException(status_code=409, detail="Username already taken")
-
-        if "bio" in update_data and update_data["bio"]:
-            update_data["bio"] = sanitize_text(update_data["bio"], max_length=500)
-
-        # Update via service
+        update_data = await _prepare_profile_update(profile_data, current_user, auth_service)
         try:
             updated_user = await auth_service.update_user_profile(current_user.id, update_data)
         except ValueError:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail=USER_NOT_FOUND_DETAIL)
 
         return ProfileUpdateResponse(
             message="Profile updated successfully",
@@ -140,7 +160,7 @@ async def update_profile(
                 "email": updated_user["email"],
                 "name": updated_user["name"],
                 "username": updated_user.get("username"),
-                "picture": updated_user.get("picture"),
+                "picture": sanitize_avatar_url(updated_user.get("picture")),
                 "bio": updated_user.get("bio"),
                 "created_at": updated_user["created_at"],
             },
@@ -157,8 +177,7 @@ async def update_profile(
 
 @router.get(
     "",
-    response_model=ProfileResponse,
-    responses={404: {"description": "User not found"}, 500: {"description": "Internal Server Error"}},
+    responses={404: {"description": USER_NOT_FOUND_DETAIL}, 500: {"description": "Internal Server Error"}},
 )
 @limiter.limit(get_api_limit)
 async def get_profile(
@@ -179,7 +198,7 @@ async def get_profile(
     try:
         user = await auth_service.get_user_by_id(current_user.id)
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail=USER_NOT_FOUND_DETAIL)
 
         return ProfileResponse(
             id=user.id,
@@ -244,7 +263,7 @@ async def resolve_user_by_identifier(
         user = await auth_service.user_service.get_user_by_username(identifier)
 
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=USER_NOT_FOUND_DETAIL)
 
     return user
 
@@ -282,8 +301,8 @@ def _public_upload_items(photos: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return protect_photo_locations(uploads)
 
 
-@router.get("/public/{identifier}", response_model=PublicProfileResponse)
-async def get_public_profile(
+@router.get("/public/{identifier}", responses={500: {"description": "Internal Server Error"}})
+def get_public_profile(
     response: Response,
     user: Annotated[Any, Depends(resolve_user_by_identifier)],
 ) -> PublicProfileResponse:
@@ -293,7 +312,7 @@ async def get_public_profile(
     Raises:
         HTTPException: 500 - If profile fetch fails.
     """
-    response.headers["Cache-Control"] = "public, max-age=60"
+    response.headers["Cache-Control"] = PUBLIC_PROFILE_CACHE_CONTROL
     try:
         return _public_profile_response(user)
 
@@ -306,7 +325,6 @@ async def get_public_profile(
 
 @router.get(
     "/public/{identifier}/bundle",
-    response_model=PublicProfileBundleResponse,
     responses={500: {"description": "Internal Server Error"}},
 )
 async def get_public_profile_bundle(
@@ -315,7 +333,7 @@ async def get_public_profile_bundle(
     gallery_service: Annotated[GalleryService, Depends(get_admin_gallery_service)],
 ) -> PublicProfileBundleResponse:
     """Get public profile and uploads in one request."""
-    response.headers["Cache-Control"] = "public, max-age=60"
+    response.headers["Cache-Control"] = PUBLIC_PROFILE_CACHE_CONTROL
     try:
         photos = await gallery_service.get_user_photos(user.id, include_unapproved=False)
         uploads = _public_upload_items(photos)
@@ -331,7 +349,6 @@ async def get_public_profile_bundle(
 
 @router.get(
     "/public/{identifier}/uploads",
-    response_model=UploadsResponse,
     responses={500: {"description": "Internal Server Error"}},
 )
 async def get_public_user_uploads(
@@ -345,7 +362,7 @@ async def get_public_user_uploads(
     Raises:
         HTTPException: 500 - If uploads fetch fails.
     """
-    response.headers["Cache-Control"] = "public, max-age=60"
+    response.headers["Cache-Control"] = PUBLIC_PROFILE_CACHE_CONTROL
     try:
         user_id = user.id
         photos = await gallery_service.get_user_photos(user_id, include_unapproved=False)
@@ -358,7 +375,7 @@ async def get_public_user_uploads(
         raise HTTPException(status_code=500, detail="Failed to get uploads")
 
 
-@router.get("/uploads", response_model=UploadsResponse, responses={500: {"description": "Internal Server Error"}})
+@router.get("/uploads", responses={500: {"description": "Internal Server Error"}})
 async def get_user_uploads(
     response: Response,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
@@ -386,9 +403,7 @@ async def get_user_uploads(
         raise HTTPException(status_code=500, detail=detail)
 
 
-@router.post(
-    "/picture", response_model=ProfilePictureResponse, responses={500: {"description": "Internal Server Error"}}
-)
+@router.post("/picture", responses={500: {"description": "Internal Server Error"}})
 @strict_limiter.limit(get_strict_limit)
 async def upload_profile_picture(
     request: Request,
@@ -434,7 +449,6 @@ async def upload_profile_picture(
 
 @router.put(
     "/password",
-    response_model=PasswordChangeResponse,
     responses={400: {"description": "Bad Request"}, 500: {"description": "Internal Server Error"}},
 )
 @auth_limiter.limit("5/minute")
@@ -488,7 +502,6 @@ async def change_password(
 
 @router.put(
     "/uploads/{photo_id}",
-    response_model=PhotoUpdateResponse,
     responses={
         400: {"description": "Bad Request"},
         403: {"description": "Unauthorized"},
@@ -568,7 +581,6 @@ async def update_user_photo(
 
 @router.delete(
     "/uploads/{photo_id}",
-    response_model=PhotoDeleteResponse,
     status_code=202,
     responses={404: {"description": "Not Found"}, 500: {"description": "Internal Server Error"}},
 )
@@ -614,7 +626,6 @@ async def _execute_account_deletion_action(coro: Any, log_msg: str, detail_msg: 
 
 @router.post(
     "/delete-request",
-    response_model=AccountDeletionResponse,
     responses={400: {"description": "Conflict/Bad Request"}, 500: {"description": "Internal Server Error"}},
 )
 @auth_limiter.limit("5/minute")
@@ -640,7 +651,6 @@ async def request_account_deletion(
 
 @router.post(
     "/cancel-deletion",
-    response_model=AccountDeletionResponse,
     responses={400: {"description": "Conflict/Bad Request"}, 500: {"description": "Internal Server Error"}},
 )
 @auth_limiter.limit("5/minute")

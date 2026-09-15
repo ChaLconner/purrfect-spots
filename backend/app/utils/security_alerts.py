@@ -223,12 +223,12 @@ def get_alert_summary() -> dict:
     now = time.time()
 
     # Clean expired entries
-    for key in list(_failed_logins.keys()):
+    for key in tuple(_failed_logins):
         _failed_logins[key] = [t for t in _failed_logins[key] if now - t < BRUTE_FORCE_WINDOW]
         if not _failed_logins[key]:
             del _failed_logins[key]
 
-    for key in list(_failed_permissions.keys()):
+    for key in tuple(_failed_permissions):
         _failed_permissions[key] = [t for t in _failed_permissions[key] if now - t < FAILED_PERMISSION_WINDOW]
         if not _failed_permissions[key]:
             del _failed_permissions[key]

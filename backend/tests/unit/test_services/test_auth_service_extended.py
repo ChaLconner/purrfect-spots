@@ -46,6 +46,7 @@ class TestAuthServiceExtended:
     def auth_service(self, mock_supabase, mock_user_service_instance):
         with (
             patch("app.services.auth_service.UserService", return_value=mock_user_service_instance),
+            patch("app.services.google_auth_service.google_auth_service.google_client_id", "test_id"),
             patch.dict(
                 "os.environ",
                 {
@@ -69,6 +70,7 @@ class TestAuthServiceExtended:
                 "iss": "accounts.google.com",
                 "sub": "google123",
                 "email": "test@gmail.com",
+                "email_verified": True,
                 "name": "Tester",
                 "picture": "http://pic",  # NOSONAR python:S5332 - test fixture URL
                 "aud": "test_id",
@@ -116,7 +118,10 @@ class TestAuthServiceExtended:
         assert token is not None
 
         # Verify with matching fingerprint
-        payload = await auth_service.verify_refresh_token(token, ip="1.2.3.4", user_agent="Mozilla")
+        token_service = AsyncMock()
+        token_service.is_user_invalidated.return_value = False
+        with patch("app.services.auth.token_mixin.get_token_service", new=AsyncMock(return_value=token_service)):
+            payload = await auth_service.verify_refresh_token(token, ip="1.2.3.4", user_agent="Mozilla")
         assert payload is not None
         assert payload["user_id"] == "00000000-0000-4000-a000-000000000123"
 
@@ -191,5 +196,5 @@ class TestAuthServiceExtended:
         ) as mock_exchange:
             mock_exchange.side_effect = ValueError("Code exchange failed")
 
-            with pytest.raises(ValueError, match="Code exchange failed"):
+            with pytest.raises(ValueError, match="Google sign-in failed"):
                 await auth_service.exchange_google_code("code", "ver", "redir")

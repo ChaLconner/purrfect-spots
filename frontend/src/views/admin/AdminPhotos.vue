@@ -34,7 +34,7 @@
             <template v-if="!isLoading">
               <tr v-for="photo in photos" :key="photo.id" class="transition-colors hover:bg-sand-50/55">
                 <td class="p-3 px-6 border-b border-[#f2ece8] align-middle whitespace-nowrap">
-                  <div class="w-16 h-16 cursor-pointer" @click="previewImage = photo">
+                  <div class="w-16 h-16 cursor-pointer" @click="previewCat = photo">
                     <OptimizedImage
                       class="w-16 h-16 rounded-xl border border-sand-200 shadow-sm transition-transform hover:scale-105"
                       :src="photo.image_url"
@@ -52,16 +52,24 @@
                 </td>
                 <td class="p-3 px-6 border-b border-[#f2ece8] align-middle">
                   <div v-if="editingPhotoId === photo.id" class="grid gap-2 max-w-xs">
-                    <input v-model="editForm.location_name" type="text" class="w-full text-sm p-2 border border-sand-300 rounded-lg" />
+                    <label :for="`photo-location-${photo.id}`" class="sr-only">
+                      {{ t('admin.photos.edit.location_placeholder') }}
+                    </label>
+                    <input
+                      :id="`photo-location-${photo.id}`"
+                      v-model="editForm.location_name"
+                      type="text"
+                      class="w-full text-sm p-2 border border-sand-300 rounded-lg"
+                    />
                     <div class="flex gap-2">
-                      <button class="text-xs px-3 py-1.5 rounded-lg font-semibold bg-[#c15f36] text-white" @click="saveEdit(photo)">{{ t('admin.photos.edit.save') }}</button>
-                      <button class="text-xs px-3 py-1.5 rounded-lg font-semibold bg-sand-200 text-sand-700" @click="editingPhotoId = null">{{ t('admin.photos.edit.cancel') }}</button>
+                      <button type="button" class="text-xs px-3 py-1.5 rounded-lg font-semibold bg-[#c15f36] text-white" @click="saveEdit(photo)">{{ t('admin.photos.edit.save') }}</button>
+                      <button type="button" class="text-xs px-3 py-1.5 rounded-lg font-semibold bg-sand-200 text-sand-700" @click="editingPhotoId = null">{{ t('admin.photos.edit.cancel') }}</button>
                     </div>
                   </div>
                   <div v-else class="flex flex-col">
                     <span class="text-sm font-medium text-brown-900">{{ photo.location_name }}</span>
                     <span class="text-sm text-brown-500 line-clamp-1">{{ photo.description }}</span>
-                    <button v-if="canWrite" class="mt-1 text-sm font-medium text-terracotta-600 text-left" @click="startEdit(photo)">{{ t('common.edit') }}</button>
+                    <button v-if="canWrite" type="button" class="mt-1 text-sm font-medium text-terracotta-600 text-left" @click="startEdit(photo)">{{ t('common.edit') }}</button>
                   </div>
                 </td>
                 <td class="p-3 px-6 border-b border-[#f2ece8] align-middle whitespace-nowrap text-sm text-brown-500">
@@ -74,7 +82,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
                     </a>
-                    <button v-if="canDelete" class="text-sm font-medium text-red-600 px-2 py-1" @click="confirmDelete(photo)">
+                    <button v-if="canDelete" type="button" class="text-sm font-medium text-red-600 px-2 py-1" @click="confirmDelete(photo)">
                       {{ t('common.delete') }}
                     </button>
                   </div>
@@ -112,8 +120,12 @@
         @confirm="executeDelete"
       />
       
-      <div v-if="previewImage" class="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50" @click="previewImage = null">
-        <img :src="previewImage.image_url" class="max-w-full max-h-full rounded-lg shadow-2xl" />
+      <div v-if="previewCat" class="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50" @click="previewCat = null">
+        <img
+          :src="previewCat.image_url"
+          :alt="previewCat.location_name || 'Cat preview'"
+          class="max-w-full max-h-full rounded-lg shadow-2xl"
+        />
       </div>
     </Teleport>
   </div>
@@ -194,26 +206,26 @@ const saveEdit = async (photo: AdminPhoto): Promise<void> => {
 // Delete
 const deleteConfirmOpen = ref(false);
 const photoToDelete = ref<AdminPhoto | null>(null);
-const previewImage = ref<AdminPhoto | null>(null);
+const previewCat = ref<AdminPhoto | null>(null);
 
 function handleLightboxKeydown(e: KeyboardEvent): void {
-  if (!previewImage.value) return;
+  if (!previewCat.value) return;
   if (e.key === 'Escape') {
-    previewImage.value = null;
+    previewCat.value = null;
   } else if (e.key === 'ArrowLeft') {
-    const idx = photos.value.findIndex((p) => p.id === previewImage.value?.id);
+    const idx = photos.value.findIndex((p) => p.id === previewCat.value?.id);
     if (idx > 0) {
-      previewImage.value = photos.value[idx - 1];
+      previewCat.value = photos.value[idx - 1];
     }
   } else if (e.key === 'ArrowRight') {
-    const idx = photos.value.findIndex((p) => p.id === previewImage.value?.id);
+    const idx = photos.value.findIndex((p) => p.id === previewCat.value?.id);
     if (idx >= 0 && idx < photos.value.length - 1) {
-      previewImage.value = photos.value[idx + 1];
+      previewCat.value = photos.value[idx + 1];
     }
   }
 }
 
-watch(previewImage, (val) => {
+watch(previewCat, (val) => {
   if (val) {
     window.addEventListener('keydown', handleLightboxKeydown);
   } else {

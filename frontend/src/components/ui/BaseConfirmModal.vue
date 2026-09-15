@@ -103,6 +103,7 @@ defineEmits<{
 
       <div class="flex justify-center gap-3 font-body">
         <button
+type="button"
           class="px-5 py-2 text-stone-500 hover:bg-stone-50 rounded-xl font-medium transition-colors cursor-pointer"
           :disabled="isLoading"
           @click="$emit('close')"
@@ -110,6 +111,7 @@ defineEmits<{
           {{ cancelText || t('common.cancel') }}
         </button>
         <button
+type="button"
           :disabled="isLoading"
           class="px-5 py-2 text-white rounded-xl shadow-md font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
           :class="{

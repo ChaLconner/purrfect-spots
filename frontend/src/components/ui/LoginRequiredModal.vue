@@ -41,6 +41,7 @@ const handleLogin = (): void => {
 
       <div class="pt-4 space-y-3">
         <button
+type="button"
           class="w-full py-3 bg-terracotta text-white font-heading font-bold rounded-xl shadow-lg hover:bg-terracotta-dark transition-all duration-300 cursor-pointer"
           @click="handleLogin"
         >
@@ -48,6 +49,7 @@ const handleLogin = (): void => {
         </button>
 
         <button
+type="button"
           class="w-full py-3 bg-sand-100 text-sand-600 font-heading font-bold rounded-xl hover:bg-sand-200 transition-all duration-300 cursor-pointer"
           @click="close"
         >

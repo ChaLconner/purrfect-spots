@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import bindparam, select
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
@@ -20,50 +20,51 @@ class UserReadMixin(UserBaseMixin):
         user_data["role"] = data.get("role_name")
         return User(**user_data, permissions=permissions)
 
+    async def _get_user_by_id_sql(self, user_id: str) -> User | None:
+        if not self.db:
+            return None
+        try:
+            users = self._users_table()
+            user_id_param = bindparam("user_id", type_=PGUUID(as_uuid=False))
+            user_query = self._build_user_with_role_query().where(users.c.id == user_id_param).limit(1)
+            db_res = await self.db.execute(user_query, {"user_id": user_id})
+            row = db_res.fetchone()
+            if not row:
+                return None
+            permissions = await self._get_permissions_for_user_id(user_id)
+            return self._build_user_from_row(row, permissions)
+        except Exception as e:
+            logger.warning("SQL get_user_by_id failed, falling back to Supabase: %s", e)
+            return None
+
+    async def _get_user_by_id_supabase(self, user_id: str) -> User | None:
+        query_str = f"{self.USER_COLUMNS}, roles(name, role_permissions(permissions(code)))"
+        admin = await self._get_admin_client()
+        supa_res = await admin.table("users").select(query_str).eq("id", user_id).maybe_single().execute()
+        if not supa_res or not supa_res.data:
+            return None
+
+        user_data = cast(dict[str, Any], supa_res.data)
+        role_dict = self._extract_role_dict(user_data.get("roles"))
+        role_permissions = role_dict.get("role_permissions") if role_dict else None
+        role_id = user_data.get("role_id")
+        if role_id and (not role_dict or not role_permissions):
+            role_res = await admin.table("roles").select("name").eq("id", role_id).maybe_single().execute()
+            role_row = cast(dict[str, Any] | None, getattr(role_res, "data", None))
+            role_permissions_res = (
+                await admin.table("role_permissions").select("permissions(code)").eq("role_id", role_id).execute()
+            )
+            user_data["roles"] = {
+                "name": role_row.get("name") if role_row else None,
+                "role_permissions": cast(list[dict[str, Any]], role_permissions_res.data or []),
+            }
+        return self._map_db_user_to_model(user_data)
+
     async def get_user_by_id(self, user_id: str) -> User | None:
         """Get user by ID from database with Role and Permissions (Async)"""
         try:
-            if self.db:
-                try:
-                    users = self._users_table()
-                    user_id_param = bindparam("user_id", type_=PGUUID(as_uuid=False))
-                    user_query = self._build_user_with_role_query().where(users.c.id == user_id_param).limit(1)
-                    db_res = await self.db.execute(user_query, {"user_id": user_id})
-                    row = db_res.fetchone()
-                    if row:
-                        permissions = await self._get_permissions_for_user_id(user_id)
-                        return self._build_user_from_row(row, permissions)
-                except Exception as e:
-                    logger.warning("SQL get_user_by_id failed, falling back to Supabase: %s", e)
-
-            from typing import cast
-
-            query_str = f"{self.USER_COLUMNS}, roles(name, role_permissions(permissions(code)))"
-            admin = await self._get_admin_client()
-            supa_res = await admin.table("users").select(query_str).eq("id", user_id).maybe_single().execute()
-            if supa_res and supa_res.data:
-                user_data = cast(dict[str, Any], supa_res.data)
-                role_dict = self._extract_role_dict(user_data.get("roles"))
-                role_permissions = role_dict.get("role_permissions") if role_dict else None
-                role_id = user_data.get("role_id")
-
-                if role_id and (not role_dict or not role_permissions):
-                    role_res = await admin.table("roles").select("name").eq("id", role_id).maybe_single().execute()
-                    role_row = cast(dict[str, Any] | None, getattr(role_res, "data", None))
-                    role_permissions_res = (
-                        await admin.table("role_permissions")
-                        .select("permissions(code)")
-                        .eq("role_id", role_id)
-                        .execute()
-                    )
-                    role_name = role_row.get("name") if role_row else None
-                    user_data["roles"] = {
-                        "name": role_name,
-                        "role_permissions": cast(list[dict[str, Any]], role_permissions_res.data or []),
-                    }
-
-                return self._map_db_user_to_model(user_data)
-            return None
+            sql_user = await self._get_user_by_id_sql(user_id)
+            return sql_user or await self._get_user_by_id_supabase(user_id)
         except Exception as e:
             logger.debug("Failed to retrieve profile by ID: %s", e)
             return None

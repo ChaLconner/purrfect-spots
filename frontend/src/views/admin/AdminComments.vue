@@ -10,6 +10,7 @@
       <template #actions>
         <div class="flex p-1.5 border border-sand-200/95 rounded-2xl bg-sand-100/50">
           <button
+type="button"
             class="px-5 py-2 rounded-lg text-xs font-medium uppercase tracking-[0.08em] transition-all"
             :class="
               !showReportedOnly
@@ -21,6 +22,7 @@
             {{ t('admin.comments.all') }}
           </button>
           <button
+type="button"
             class="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-medium uppercase tracking-[0.08em] transition-all"
             :class="
               showReportedOnly
@@ -59,12 +61,14 @@
       </span>
       <div class="flex items-center gap-3">
         <button
+type="button"
           class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all bg-red-50 text-red-600 border-red-200 hover:bg-red-500 hover:text-white"
           @click="bulkAction('delete')"
         >
           {{ t('admin.comments.bulk_delete') }}
         </button>
         <button
+type="button"
           class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all bg-green-50 text-green-600 border-green-200 hover:bg-green-500 hover:text-white"
           @click="bulkAction('dismiss')"
         >
@@ -122,7 +126,11 @@
           >
             <!-- Checkbox -->
             <div class="flex-shrink-0 pt-1.5">
+              <label :for="`comment-${comment.id}`" class="sr-only">
+                {{ comment.user_email || t('admin.comments.unknown_user') }}
+              </label>
               <input
+                :id="`comment-${comment.id}`"
                 type="checkbox"
                 class="w-5 h-5 rounded-lg border-sand-200 text-terracotta-500 focus:ring-terracotta-400/20 focus:ring-offset-0 cursor-pointer transition-all bg-sand-50"
                 :checked="selectedCommentIds.includes(comment.id)"
@@ -163,7 +171,8 @@
 
               <div class="flex items-center justify-end gap-2 mt-4 pt-2 border-t border-sand-200/95">
                 <button
-                  v-if="!comment.is_user_banned"
+v-if="!comment.is_user_banned"
+                  type="button"
                   class="inline-flex items-center gap-2 rounded-lg text-sm font-medium text-brown-600 transition-colors hover:text-red-600"
                   @click="handleBanUser(comment)"
                 >
@@ -171,7 +180,8 @@
                 </button>
 
                 <button
-                  v-if="comment.report_count > 0"
+v-if="comment.report_count > 0"
+                  type="button"
                   class="inline-flex items-center gap-2 px-3 py-1.5 border rounded-lg text-sm font-medium transition-all bg-green-50 text-green-600 border-green-200 hover:bg-green-500 hover:text-white"
                   @click="dismissReports(comment)"
                 >
@@ -179,6 +189,7 @@
                 </button>
 
                 <button
+type="button"
                   class="inline-flex items-center gap-2 px-3 py-1.5 border rounded-lg text-sm font-medium transition-all bg-red-50 text-red-600 border-red-200 hover:bg-red-500 hover:text-white"
                   @click="confirmDelete(comment)"
                 >

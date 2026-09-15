@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from typing import Annotated, Any, cast
 
@@ -5,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from postgrest.types import CountMethod
 from pydantic import BaseModel
 
+from app.constants.admin_permissions import COMMENTS_MANAGE
 from app.dependencies import get_async_supabase_admin_client, get_notification_service
 from app.logger import logger
 from app.middleware.auth_middleware import invalidate_user_auth_cache, require_permission
@@ -13,16 +15,72 @@ from app.schemas.user import User
 from app.services.notification_service import NotificationService
 from app.services.token_service import get_token_service
 from app.utils.audit_logger import log_admin_action
+from app.utils.db_security import escape_like_pattern, sanitize_search_input
 
 router = APIRouter()
 MAX_COMMENTS_PAGE_SIZE = 100
 ADMIN_COMMENT_COLUMNS = (
     "id, content, user_id, photo_id, created_at, user_display_name, user_username, user_avatar, report_count"
 )
+ADMIN_COMMENT_RESPONSES: dict[int | str, dict[str, Any]] = {
+    400: {"description": "Invalid moderation request"},
+    404: {"description": "Comment or user not found"},
+    500: {"description": "Internal server error"},
+}
 
 
 class BulkCommentAction(BaseModel):
     comment_ids: list[str]
+
+
+def _build_comment_query(
+    admin_client: Any,
+    offset: int,
+    page_size: int,
+    search: str | None,
+    reported_only: bool,
+) -> Any:
+    query = (
+        admin_client.table("admin_comment_list")
+        .select(ADMIN_COMMENT_COLUMNS, count=CountMethod.exact)
+        .order("created_at", desc=True)
+        .range(offset, offset + page_size - 1)
+    )
+    if search:
+        clean_search = sanitize_search_input(search)
+        if clean_search:
+            safe_search = escape_like_pattern(clean_search)
+            query = query.or_(
+                f"content.ilike.%{safe_search}%,"
+                f"user_display_name.ilike.%{safe_search}%,"
+                f"user_username.ilike.%{safe_search}%"
+            )
+    if reported_only:
+        query = query.gt("report_count", 0)
+    return query
+
+
+async def _fetch_comment_user_map(admin_client: Any, user_ids: list[str]) -> dict[str, Any]:
+    if not user_ids:
+        return {}
+    chunks = [user_ids[i : i + 50] for i in range(0, len(user_ids), 50)]
+    tasks = [admin_client.table("users").select("id, email, banned_at").in_("id", chunk).execute() for chunk in chunks]
+    responses = await asyncio.gather(*tasks, return_exceptions=True)
+    user_map: dict[str, Any] = {}
+    for result in responses:
+        if isinstance(result, BaseException) or not hasattr(result, "data"):
+            continue
+        for user in cast(list[dict[str, Any]], result.data):
+            user_map[user["id"]] = user
+    return user_map
+
+
+def _enrich_comments(items: list[dict[str, Any]], user_map: dict[str, Any]) -> None:
+    for item in items:
+        user = user_map.get(item["user_id"], {})
+        item["user_email"] = user.get("email")
+        item["is_user_banned"] = user.get("banned_at") is not None
+        item["violation_count"] = 0
 
 
 async def _invalidate_banned_user_auth_state(user_id: str) -> None:
@@ -31,14 +89,14 @@ async def _invalidate_banned_user_auth_state(user_id: str) -> None:
     await token_service.blacklist_all_user_tokens(user_id, reason="comment_moderation_ban")
 
 
-@router.get("")
+@router.get("", responses=ADMIN_COMMENT_RESPONSES)
 async def list_all_comments(
+    current_admin: Annotated[User, Depends(require_permission(COMMENTS_MANAGE))],
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int | None, Query(ge=1, le=MAX_COMMENTS_PAGE_SIZE)] = None,
     limit: Annotated[int | None, Query(ge=1, le=MAX_COMMENTS_PAGE_SIZE)] = None,
     search: Annotated[str | None, Query()] = None,
     reported_only: Annotated[bool, Query()] = False,
-    current_admin: User = Depends(require_permission("comments:manage")),
 ) -> dict[str, Any]:
     """List all comments across the platform with pagination, search and counts."""
     try:
@@ -47,61 +105,13 @@ async def list_all_comments(
 
         offset = (page - 1) * effective_page_size
 
-        # Base query for data using the view admin_comment_list
-        query = (
-            admin_client.table("admin_comment_list")
-            .select(ADMIN_COMMENT_COLUMNS, count=CountMethod.exact)
-            .order("created_at", desc=True)
-            .range(offset, offset + effective_page_size - 1)
-        )
-
-        if search:
-            query = query.or_(
-                f"content.ilike.%{search}%,user_display_name.ilike.%{search}%,user_username.ilike.%{search}%"
-            )
-
-        if reported_only:
-            query = query.gt("report_count", 0)
-
-        result = await query.execute()
+        result = await _build_comment_query(admin_client, offset, effective_page_size, search, reported_only).execute()
         items = cast(list[dict[str, Any]], result.data)
         total_count = result.count or 0
         pages = (total_count + effective_page_size - 1) // effective_page_size
 
-        # Parallelize additional data fetching
         user_ids = list({item["user_id"] for item in items if item.get("user_id")})
-
-        async def fetch_additional_data() -> dict[str, Any]:
-            if not user_ids:
-                return {}
-
-            # Chunk user_ids in batches of 50 to prevent query string limits
-            user_map = {}
-            import asyncio
-
-            chunk_size = 50
-            chunks = [user_ids[i : i + chunk_size] for i in range(0, len(user_ids), chunk_size)]
-            tasks = [
-                admin_client.table("users").select("id, email, banned_at").in_("id", chunk).execute()
-                for chunk in chunks
-            ]
-            responses = await asyncio.gather(*tasks, return_exceptions=True)
-            for res in responses:
-                if not isinstance(res, BaseException) and hasattr(res, "data"):
-                    res_data = cast(list[dict[str, Any]], res.data)
-                    for u in res_data:
-                        user_map[u["id"]] = u
-            return user_map
-
-        user_map = await fetch_additional_data()
-
-        # Merge additional data into items
-        for item in items:
-            uid = item["user_id"]
-            user = user_map.get(uid, {})
-            item["user_email"] = user.get("email")
-            item["is_user_banned"] = user.get("banned_at") is not None
-            item["violation_count"] = 0
+        _enrich_comments(items, await _fetch_comment_user_map(admin_client, user_ids))
 
         return {"items": items, "total": total_count, "page": page, "pages": pages}
     except Exception as e:
@@ -109,10 +119,10 @@ async def list_all_comments(
         raise HTTPException(status_code=500, detail="Failed to fetch comments")
 
 
-@router.get("/{comment_id}/reports")
+@router.get("/{comment_id}/reports", responses=ADMIN_COMMENT_RESPONSES)
 async def get_comment_report_details(
     comment_id: str,
-    current_admin: User = Depends(require_permission("comments:manage")),
+    current_admin: Annotated[User, Depends(require_permission(COMMENTS_MANAGE))],
 ) -> list[dict[str, Any]]:
     """Get detailed report reasons for a specific comment."""
     try:
@@ -130,11 +140,11 @@ async def get_comment_report_details(
         raise HTTPException(status_code=500, detail="Failed to fetch report details")
 
 
-@router.put("/{comment_id}/resolve")
+@router.put("/{comment_id}/resolve", responses=ADMIN_COMMENT_RESPONSES)
 async def resolve_comment_reports(
     comment_id: str,
     request: Request,
-    current_admin: User = Depends(require_permission("comments:manage")),
+    current_admin: Annotated[User, Depends(require_permission(COMMENTS_MANAGE))],
 ) -> dict[str, str]:
     """Dismiss all pending reports for a comment (Mark as Safe)."""
     try:
@@ -172,13 +182,13 @@ async def resolve_comment_reports(
         raise HTTPException(status_code=500, detail="Failed to resolve reports")
 
 
-@router.delete("/{comment_id}")
+@router.delete("/{comment_id}", responses=ADMIN_COMMENT_RESPONSES)
 async def delete_comment(
     comment_id: str,
     request: Request,
     background_tasks: BackgroundTasks,
-    current_admin: User = Depends(require_permission("comments:manage")),
-    notification_service: NotificationService = Depends(get_notification_service),
+    current_admin: Annotated[User, Depends(require_permission(COMMENTS_MANAGE))],
+    notification_service: Annotated[NotificationService, Depends(get_notification_service)],
 ) -> dict[str, str]:
     """Delete a comment (Moderation)."""
     try:
@@ -239,13 +249,13 @@ async def delete_comment(
         raise HTTPException(status_code=500, detail="Failed to delete comment")
 
 
-@router.post("/{comment_id}/ban-user")
+@router.post("/{comment_id}/ban-user", responses=ADMIN_COMMENT_RESPONSES)
 async def ban_user_by_comment(
     comment_id: str,
     request: Request,
     background_tasks: BackgroundTasks,
-    current_admin: User = Depends(require_permission("comments:manage")),
-    notification_service: NotificationService = Depends(get_notification_service),
+    current_admin: Annotated[User, Depends(require_permission(COMMENTS_MANAGE))],
+    notification_service: Annotated[NotificationService, Depends(get_notification_service)],
 ) -> dict[str, str]:
     """Ban the author of a specific comment."""
     try:
@@ -307,13 +317,13 @@ async def ban_user_by_comment(
         raise HTTPException(status_code=500, detail="Failed to ban user")
 
 
-@router.post("/bulk-delete")
+@router.post("/bulk-delete", responses=ADMIN_COMMENT_RESPONSES)
 async def bulk_delete_comments(
     action_data: BulkCommentAction,
     request: Request,
     background_tasks: BackgroundTasks,
-    current_admin: User = Depends(require_permission("comments:manage")),
-    notification_service: NotificationService = Depends(get_notification_service),
+    current_admin: Annotated[User, Depends(require_permission(COMMENTS_MANAGE))],
+    notification_service: Annotated[NotificationService, Depends(get_notification_service)],
 ) -> dict[str, str]:
     """Delete multiple comments in a single action."""
     try:
@@ -352,7 +362,6 @@ async def bulk_delete_comments(
             "BULK_DELETE_COMMENTS",
             "photo_comments",
             {"comment_ids": action_data.comment_ids},
-            request=request,
         )
 
         for author_id in author_ids:
@@ -371,11 +380,11 @@ async def bulk_delete_comments(
         raise HTTPException(status_code=500, detail="Bulk delete failed")
 
 
-@router.post("/bulk-resolve")
+@router.post("/bulk-resolve", responses=ADMIN_COMMENT_RESPONSES)
 async def bulk_resolve_comments(
     action_data: BulkCommentAction,
     request: Request,
-    current_admin: User = Depends(require_permission("comments:manage")),
+    current_admin: Annotated[User, Depends(require_permission(COMMENTS_MANAGE))],
 ) -> dict[str, str]:
     """Dismiss reports for multiple comments in a single action."""
     try:
@@ -404,7 +413,6 @@ async def bulk_resolve_comments(
             "BULK_RESOLVE_COMMENT_REPORTS",
             "photo_comments",
             {"comment_ids": action_data.comment_ids},
-            request=request,
         )
 
         return {"message": f"Successfully dismissed reports for {len(action_data.comment_ids)} comments"}

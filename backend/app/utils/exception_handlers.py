@@ -66,7 +66,7 @@ def _error_response(
     )
 
 
-async def purrfect_spots_exception_handler(request: Request, exc: PurrfectSpotsException) -> JSONResponse:
+def purrfect_spots_exception_handler(request: Request, exc: PurrfectSpotsException) -> JSONResponse:
     """Handle custom business-logic exceptions with unified format."""
     if SENTRY_DSN and exc.status_code >= 500:
         sentry_sdk.capture_exception(exc)
@@ -103,7 +103,7 @@ async def purrfect_spots_exception_handler(request: Request, exc: PurrfectSpotsE
     )
 
 
-async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unhandled exceptions with unified format."""
     if SENTRY_DSN:
         sentry_sdk.capture_exception(exc)
@@ -139,7 +139,7 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
     )
 
 
-async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+def custom_http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     """Handle standard HTTP exceptions with unified format."""
     request_id = _get_request_id(request)
     user_id = _get_user_id(request)
@@ -187,7 +187,7 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
     )
 
 
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Handle Pydantic validation errors with unified format."""
     request_id = _get_request_id(request)
     user_id = _get_user_id(request)

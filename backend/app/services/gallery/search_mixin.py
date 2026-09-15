@@ -27,7 +27,7 @@ class GallerySearchMixin(GalleryBaseMixin):
     """SEARCH and TAG operations for GalleryService"""
 
     # These are provided by the main GalleryService or other mixins
-    search_service: "SearchService"
+    search_service: SearchService
 
     @property
     async def _fulltext_available(self) -> bool:

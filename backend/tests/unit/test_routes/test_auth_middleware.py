@@ -1,9 +1,10 @@
 # nosec python:S2068, python:S5332 - Hardcoded secrets/URLs in this file are intentional test fixtures
 # These are not real credentials/URLs; they are used only for unit testing authentication
 
+import asyncio
 import os
 import time
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from fastapi import HTTPException
 
 from app.middleware.auth_middleware import (
     _apply_subscription_expiry_guard,
+    _finish_background_user_auth_refresh,
     _get_user_from_payload,
     _verify_and_decode_token,
     decode_supabase_token,
@@ -24,7 +26,13 @@ from app.schemas.user import User
 
 @pytest.fixture
 def mock_env():
-    with patch.dict(os.environ, {"SUPABASE_URL": "https://testproject.supabase.co", "JWT_SECRET": "supersecretkey"}):
+    with patch.dict(
+        os.environ,
+        {
+            "SUPABASE_URL": "https://testproject.supabase.co",
+            "JWT_SECRET": "supersecretkey",  # pragma: allowlist secret
+        },
+    ):
         yield
 
 
@@ -98,7 +106,7 @@ async def test_get_jwks_sanitizes_apikey_header(mock_jwks_response):
     assert jwks == mock_jwks_response
     mock_client.get.assert_awaited_once_with(
         "https://testproject.supabase.co/auth/v1/.well-known/jwks.json",
-        headers={"apikey": "test-anon-key"},
+        headers={"apikey": "test-anon-key"},  # pragma: allowlist secret
         timeout=5,
     )
 
@@ -152,11 +160,11 @@ async def test_decode_supabase_token_success(mock_env, mock_jwks_response):
 
         with (
             patch("jwt.get_unverified_header") as mock_header,
-            patch("jwt.algorithms.RSAAlgorithm.from_jwk") as mock_algo,
+            patch("app.middleware.auth_middleware.PyJWK.from_dict") as mock_algo,
             patch("jwt.decode") as mock_decode,
         ):
-            mock_header.return_value = {"kid": "key1"}
-            mock_algo.return_value = "public_key_obj"
+            mock_header.return_value = {"kid": "key1", "alg": "RS256"}
+            mock_algo.return_value.key = "public_key_obj"
             mock_decode.return_value = {"sub": "00000000-0000-4000-a000-000000000123", "aud": "authenticated"}
             payload = await decode_supabase_token("valid_token")
             assert payload["sub"] == "00000000-0000-4000-a000-000000000123"
@@ -181,7 +189,7 @@ async def test_decode_supabase_token_missing_kid(mock_env, mock_jwks_response):
             with pytest.raises(HTTPException) as exc:
                 await decode_supabase_token("token")
             assert exc.value.status_code == 401
-            assert "missing 'kid'" in exc.value.detail
+            assert exc.value.detail == "Invalid Supabase token"
 
 
 # Removed tests for decode_custom_token as it was replaced by auth_utils.decode_token
@@ -208,6 +216,56 @@ async def test_get_user_from_payload_supabase_no_db(mock_env):
         with pytest.raises(HTTPException) as exc:
             await _get_user_from_payload(payload, "supabase")
         assert exc.value.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_get_user_from_payload_stale_cache_refreshes_in_background():
+    user_id = "00000000-0000-4000-a000-000000000123"
+    cached_data = {"id": user_id, "email": "cached@example.com", "_cached_at": time.time() - 120}
+    refreshed_user = User(id=user_id, email="refreshed@example.com")
+
+    with (
+        patch("app.services.redis_service.redis_service.get", new_callable=AsyncMock, return_value=cached_data),
+        patch(
+            "app.middleware.auth_middleware._refresh_user_auth_cache",
+            new_callable=AsyncMock,
+            return_value=refreshed_user,
+        ) as refresh_cache,
+    ):
+        result = await _get_user_from_payload({"sub": user_id}, "custom")
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    assert result.email == "cached@example.com"
+    refresh_cache.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_finish_background_user_auth_refresh_consumes_task_outcomes():
+    user = User(id="user-123", email="user@example.com")
+    successful_task = asyncio.create_task(asyncio.sleep(0, result=user))
+    await successful_task
+    _finish_background_user_auth_refresh(successful_task)
+
+    async def fail_refresh() -> User:
+        raise RuntimeError("refresh failed")
+
+    failed_task = asyncio.create_task(fail_refresh())
+    with pytest.raises(RuntimeError, match="refresh failed"):
+        await failed_task
+    with patch("app.middleware.auth_middleware.logger.warning") as warning:
+        _finish_background_user_auth_refresh(failed_task)
+    warning.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_finish_background_user_auth_refresh_ignores_cancelled_task():
+    cancelled_task = asyncio.create_task(asyncio.sleep(60))
+    cancelled_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await cancelled_task
+
+    _finish_background_user_auth_refresh(cast(asyncio.Task[User], cancelled_task))
 
 
 def test_subscription_expiry_guard_fails_closed_for_missing_end_date():
@@ -407,22 +465,30 @@ async def test_get_user_from_payload_blocks_banned_user(mock_env):
 
 @pytest.mark.asyncio
 async def test_verify_and_decode_token_supabase_ok(mock_env):
-    with patch("app.middleware.auth_middleware.decode_supabase_token", new_callable=AsyncMock) as mock_supa:
-        mock_supa.return_value = {"sub": "123"}
+    service = AsyncMock()
+    service.is_user_invalidated.return_value = False
+    with (
+        patch("app.middleware.auth_middleware.decode_supabase_token", new_callable=AsyncMock) as mock_supa,
+        patch("app.middleware.auth_middleware.get_token_service", new=AsyncMock(return_value=service)),
+    ):
+        mock_supa.return_value = {"sub": "123", "iat": 1}
         payload, source = await _verify_and_decode_token("token")
-        assert payload == {"sub": "123"}
+        assert payload == {"sub": "123", "iat": 1}
         assert source == "supabase"
 
 
 @pytest.mark.asyncio
 async def test_verify_and_decode_token_fallback_custom(mock_env):
+    service = AsyncMock()
+    service.is_user_invalidated.return_value = False
     with (
         patch("app.middleware.auth_middleware.decode_supabase_token", side_effect=ValueError),
         patch("app.middleware.auth_middleware.decode_token") as mock_cust,
+        patch("app.middleware.auth_middleware.get_token_service", new=AsyncMock(return_value=service)),
     ):
-        mock_cust.return_value = {"sub": "456"}
+        mock_cust.return_value = {"sub": "456", "iat": 1}
         payload, source = await _verify_and_decode_token("token")
-        assert payload == {"sub": "456"}
+        assert payload == {"sub": "456", "iat": 1}
         assert source == "custom"
 
 

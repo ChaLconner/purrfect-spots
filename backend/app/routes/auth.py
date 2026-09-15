@@ -5,15 +5,21 @@ Authentication routes for both Manual (Email/Password) and Google OAuth
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.config import config
 from app.dependencies import get_auth_service, get_otp_service
-from app.limiter import auth_limiter, forgot_password_limiter
+from app.limiter import auth_limiter, forgot_password_limiter, refresh_token_limiter
 from app.logger import logger, sanitize_log_value
-from app.middleware.auth_middleware import get_current_user, get_current_user_from_header, invalidate_user_auth_cache
+from app.middleware.auth_middleware import (
+    _validate_token_security,
+    _verify_via_supabase_api,
+    get_current_user,
+    get_current_user_from_header,
+    invalidate_user_auth_cache,
+)
 from app.schemas.auth import (
     ForgotPasswordRequest,
     GoogleCodeExchangeRequest,
@@ -36,10 +42,20 @@ from app.services.otp_service import OTPService
 from app.services.password_service import password_service
 from app.utils.auth_response_utils import create_login_response
 from app.utils.auth_utils import get_client_info, set_refresh_cookie
+from app.utils.avatar import sanitize_avatar_url
 from app.utils.exceptions import ConflictError
 from app.utils.security import log_security_event, sanitize_text
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+AUTH_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    400: {"description": "Invalid authentication request"},
+    401: {"description": "Authentication failed"},
+    403: {"description": "Account or permission denied"},
+    404: {"description": "Account not found"},
+    409: {"description": "Account already exists"},
+    429: {"description": "Rate limit exceeded"},
+    500: {"description": "Internal server error"},
+}
 
 
 # AuthService is now imported from dependencies
@@ -60,15 +76,24 @@ async def _invalidate_auth_cache_for_user(user: User | dict[str, Any] | Any) -> 
     await invalidate_user_auth_cache(str(user_id))
 
 
+def _registration_pending(email: str) -> LoginResponse:
+    """Return one response for new and existing addresses to prevent enumeration."""
+    return LoginResponse(
+        access_token=None,
+        token_type=None,
+        user=None,
+        message="If this address can be registered, a verification code will be sent.",
+        requires_verification=True,
+        email=email,
+    )
+
+
 # ==========================================
 # Manual Authentication Routes
 # ==========================================
 
 
-from typing import Annotated
-
-
-@router.post("/register", response_model=LoginResponse)
+@router.post("/register", responses=AUTH_ERROR_RESPONSES)
 @auth_limiter.limit("5/minute")
 async def register(
     response: Response,  # noqa: ARG001
@@ -84,6 +109,8 @@ async def register(
         if not data.name.strip():
             raise HTTPException(status_code=400, detail="Please enter first and last name")
 
+        # Length is validated here; the user service performs the single breach check
+        # immediately before creating the account.
         is_valid, password_error = await password_service.validate_new_password(data.password, check_breach=False)
         if not is_valid:
             raise HTTPException(
@@ -94,16 +121,15 @@ async def register(
 
         try:
             await auth_service.create_user_with_password(data.email, data.password, sanitized_name)
-        except ConflictError as e:
-            # Re-raise conflict for existing registered users
+        except ConflictError:
             logger.warning("Registration attempt for existing email: %s", sanitize_log_value(data.email))
-            raise HTTPException(status_code=409, detail="This email is already registered") from e
+            return _registration_pending(data.email)
         except Exception as e:
             logger.error("Registration processing error: %s", sanitize_log_value(str(e)))
             error_msg = str(e)
             if "already registered" in error_msg.lower() or "unique constraint" in error_msg.lower():
-                raise HTTPException(status_code=409, detail="Email already in use") from e
-            raise HTTPException(status_code=400, detail=error_msg) from e
+                return _registration_pending(data.email)
+            raise HTTPException(status_code=400, detail="Registration could not be completed") from e
 
         # Generate and send OTP
         try:
@@ -119,14 +145,7 @@ async def register(
 
         log_security_event("register_success_otp_pending", details={"email": data.email}, severity="INFO")
 
-        return LoginResponse(
-            access_token=None,  # nosec B105
-            token_type=None,  # nosec B105
-            user=None,
-            message="Registration successful. Please check your email for the verification code.",
-            requires_verification=True,
-            email=data.email,
-        )
+        return _registration_pending(data.email)
 
     except HTTPException:
         raise
@@ -136,7 +155,7 @@ async def register(
         raise HTTPException(status_code=500, detail="Registration failed. Please try again") from e
 
 
-@router.post("/verify-otp")
+@router.post("/verify-otp", responses=AUTH_ERROR_RESPONSES)
 @auth_limiter.limit("10/minute")
 async def verify_otp(
     response: Response,
@@ -161,11 +180,7 @@ async def verify_otp(
                 },
                 severity="WARNING",
             )
-            # Standardizing error message for the frontend
-            error_msg = result.get("error", "Invalid verification code")
-            if "expired" in error_msg.lower():
-                error_msg = "Verification code has expired. Please request a new one."
-            raise HTTPException(status_code=400, detail=error_msg)
+            raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
 
         # 2. Confirm email in Auth system
         confirmed = await auth_service.confirm_user_email(req.email)
@@ -196,12 +211,13 @@ async def verify_otp(
         raise HTTPException(status_code=500, detail="Verification process failed. Please try again.") from e
 
 
-@router.post("/resend-otp", response_model=ResendOTPResponse)
+@router.post("/resend-otp", responses=AUTH_ERROR_RESPONSES)
 @auth_limiter.limit("3/minute")
 async def resend_otp(
     request: Request,  # noqa: ARG001
     req: ResendOTPRequest,
     response: Response,  # noqa: ARG001
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
     otp_service: Annotated[OTPService, Depends(get_otp_service)],
 ) -> ResendOTPResponse:
     """
@@ -212,15 +228,17 @@ async def resend_otp(
         HTTPException: 500 - If sending fails.
     """
     try:
+        user = await auth_service.get_user_by_email_unverified(req.email)
+        if not user or user.get("email_confirmed_at"):
+            return ResendOTPResponse(message="If this account needs verification, a code will be sent.")
+
         # Check cooldown
-        can_resend, seconds_remaining = await otp_service.can_resend_otp(req.email)
+        can_resend, _ = await otp_service.can_resend_otp(req.email)
         if not can_resend:
-            raise HTTPException(
-                status_code=429, detail=f"Please wait {seconds_remaining} seconds before requesting a new code."
-            )
+            return ResendOTPResponse(message="If this account needs verification, a code will be sent.")
 
         # Generate new OTP
-        otp_code, expires_at = await otp_service.create_otp(req.email)
+        otp_code, _ = await otp_service.create_otp(req.email)
 
         # Send OTP via email
         email_sent = email_service.send_otp_email(req.email, otp_code)
@@ -230,16 +248,14 @@ async def resend_otp(
 
         log_security_event("otp_resend", details={"email": req.email}, severity="INFO")
 
-        return ResendOTPResponse(message="Verification code sent. Please check your email.", expires_at=expires_at)
+        return ResendOTPResponse(message="If this account needs verification, a code will be sent.")
 
-    except HTTPException:
-        raise
     except Exception:
         logger.error("Resend OTP error")
-        raise HTTPException(status_code=500, detail="Failed to send verification code. Please try again.")
+        return ResendOTPResponse(message="If this account needs verification, a code will be sent.")
 
 
-@router.post("/login", response_model=LoginResponse)
+@router.post("/login", responses=AUTH_ERROR_RESPONSES)
 @auth_limiter.limit("5/minute")
 async def login(
     response: Response,
@@ -273,7 +289,8 @@ async def login(
         raise HTTPException(status_code=500, detail="Login failed")
 
 
-@router.post("/refresh-token", response_model=LoginResponse)
+@router.post("/refresh-token", responses=AUTH_ERROR_RESPONSES)
+@refresh_token_limiter.limit(config.RATE_LIMIT_REFRESH_TOKEN)
 async def refresh_token(
     response: Response,
     request: Request,
@@ -307,17 +324,11 @@ async def refresh_token(
             response.delete_cookie("refresh_token")
             return LoginResponse(access_token=None, token_type=None, message="Account suspended")
 
-        # Rotate token: revoke old one if it has a JTI
-        old_jti = payload.get("jti")
-        old_exp = payload.get("exp")
-        if old_jti and old_exp:
-            try:
-                # payload['exp'] is usually a timestamp (int)
-                exp_dt = datetime.fromtimestamp(old_exp, UTC) if isinstance(old_exp, (int, float)) else None
-                if exp_dt:
-                    await auth_service.revoke_token(old_jti, user_id, exp_dt)
-            except Exception:
-                logger.debug("Failed to revoke old refresh token during rotation")
+        if not await auth_service.consume_refresh_token(payload):
+            # Another request may have consumed this token and already rotated
+            # the shared browser cookie. Do not erase that newer cookie if this
+            # response arrives last.
+            return LoginResponse(access_token=None, token_type=None, message="Session expired")
 
         log_security_event("token_refresh", details={"user_id": user_id}, severity="INFO")
         await _invalidate_auth_cache_for_user(user_obj)
@@ -331,7 +342,7 @@ async def refresh_token(
         return LoginResponse(access_token=None, token_type=None, message="Refresh failed")
 
 
-@router.post("/logout", response_model=LogoutResponse)
+@router.post("/logout", responses=AUTH_ERROR_RESPONSES)
 async def logout(
     response: Response,
     request: Request,
@@ -361,7 +372,7 @@ async def logout(
     return LogoutResponse(message="Logged out successfully")
 
 
-@router.post("/forgot-password", response_model=PasswordResetResponse)
+@router.post("/forgot-password", responses=AUTH_ERROR_RESPONSES)
 @forgot_password_limiter.limit(config.RATE_LIMIT_FORGOT_PASSWORD)
 async def forgot_password(
     request: Request,  # noqa: ARG001
@@ -386,7 +397,7 @@ async def forgot_password(
         )
 
 
-@router.post("/reset-password", response_model=PasswordResetResponse)
+@router.post("/reset-password", responses=AUTH_ERROR_RESPONSES)
 @forgot_password_limiter.limit(config.RATE_LIMIT_FORGOT_PASSWORD)
 async def reset_password(
     request: Request,  # noqa: ARG001
@@ -409,7 +420,7 @@ async def reset_password(
     return PasswordResetResponse(message="Password updated successfully")
 
 
-@router.post("/session-exchange", response_model=LoginResponse)
+@router.post("/session-exchange", responses=AUTH_ERROR_RESPONSES)
 @auth_limiter.limit("10/minute")
 async def exchange_session(
     response: Response,
@@ -429,6 +440,10 @@ async def exchange_session(
             raise HTTPException(status_code=401, detail="Invalid Supabase session")
 
         sb_user = user_res.user
+        verified_payload = await _verify_via_supabase_api(req.access_token, auth_service.supabase_client)
+        if not verified_payload:
+            raise HTTPException(status_code=401, detail="Invalid session")
+        await _validate_token_security(verified_payload)
         user_id = sb_user.id
         email = sb_user.email
 
@@ -465,8 +480,8 @@ async def exchange_session(
         raise HTTPException(status_code=401, detail="Session verification failed")
 
 
-@router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user: Annotated[UserResponse, Depends(get_current_user)]) -> UserResponse:
+@router.get("/me", responses=AUTH_ERROR_RESPONSES)
+def get_current_user_info(current_user: Annotated[UserResponse, Depends(get_current_user)]) -> UserResponse:
     """
     Get current user information (unified from both manual and google auth).
 
@@ -477,7 +492,7 @@ async def get_current_user_info(current_user: Annotated[UserResponse, Depends(ge
         id=current_user.id,
         email=current_user.email,
         name=current_user.name,
-        picture=current_user.picture,
+        picture=sanitize_avatar_url(current_user.picture),
         bio=current_user.bio,
         created_at=current_user.created_at,
         google_id=current_user.google_id,
@@ -504,7 +519,8 @@ def _validate_google_redirect_uri(redirect_uri: str) -> bool:
     return False
 
 
-@router.post("/google/exchange", response_model=LoginResponse)
+@router.post("/google/exchange", responses=AUTH_ERROR_RESPONSES)
+@auth_limiter.limit("10/minute")
 async def google_exchange_code(
     response: Response,
     request: Request,
@@ -535,12 +551,13 @@ async def google_exchange_code(
                 detail="Invalid redirect URI",
             )
 
-        # Exchange code for tokens
-        # Pass IP and User-Agent for fingerprinting
+        # Exchange code for tokens. Keep the request fingerprint for the
+        # refresh-token cookie even though the OAuth code exchange does not
+        # consume it.
         ip, ua = get_client_info(request)
         try:
             login_response = await auth_service.exchange_google_code(
-                exchange_data.code, exchange_data.code_verifier, exchange_data.redirect_uri, ip, ua
+                exchange_data.code, exchange_data.code_verifier, exchange_data.redirect_uri
             )
         except PermissionError as e:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
@@ -561,6 +578,7 @@ async def google_exchange_code(
             )
 
         refresh_token = auth_service.create_refresh_token(login_response.user.id, ip, ua)
+        await _invalidate_auth_cache_for_user(login_response.user)
         set_refresh_cookie(response, refresh_token)
 
         log_security_event("google_exchange_success", details={"user_id": login_response.user.id}, severity="INFO")
@@ -578,7 +596,7 @@ async def google_exchange_code(
         )
 
 
-@router.post("/sync-user", response_model=SyncUserResponse)
+@router.post("/sync-user", responses=AUTH_ERROR_RESPONSES)
 async def sync_user_data(
     user_payload: Annotated[dict, Depends(get_current_user_from_header)],
 ) -> SyncUserResponse:
@@ -592,7 +610,6 @@ async def sync_user_data(
 
         email = user_payload.get("email")
         user_metadata = user_payload.get("user_metadata", {})
-        app_metadata = user_payload.get("app_metadata", {})
 
         # Extract name and picture with fallback
         name = user_metadata.get("name") or user_metadata.get("full_name") or user_payload.get("name")
@@ -608,19 +625,11 @@ async def sync_user_data(
                 logger.warning("Rejected unapproved avatar during JWT sync", extra={"user_id": user_id})
                 picture = None
 
-        google_id = None
-        provider = app_metadata.get("provider", "")
-        if provider == "google":
-            google_id = user_metadata.get("provider_id")
-        elif user_payload.get("google_id"):
-            google_id = user_payload.get("google_id")
-
         data = {
             "id": user_id,
             "email": email,
             "name": name,
             "picture": picture,
-            "google_id": google_id,
         }
 
         # Filter out None values to avoid overwriting existing data with null

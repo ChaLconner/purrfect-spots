@@ -88,6 +88,32 @@ def _build_gallery_locations(photos: list[dict[str, Any]]) -> list[CatLocation]:
     return locations
 
 
+def _selected_gallery_fields(fields: str | None) -> set[str] | None:
+    if not fields:
+        return None
+    requested = {field.strip() for field in fields.split(",") if field.strip()}
+    selected = requested & GALLERY_ALLOWED_FIELDS
+    selected.update({"id", "image_url", "latitude", "longitude"})
+    return selected
+
+
+def _empty_gallery_response(result: dict[str, Any], offset: int, limit: int) -> PaginatedGalleryResponse:
+    total = int(result.get("total") or 0)
+    current_page = (offset // limit) + 1 if limit > 0 else 1
+    total_pages = (total + limit - 1) // limit if total > 0 else 0
+    return PaginatedGalleryResponse(
+        images=[],
+        pagination=PaginationMeta(
+            total=total,
+            limit=limit,
+            offset=offset,
+            has_more=bool(result.get("has_more", False)),
+            page=current_page,
+            total_pages=total_pages,
+        ),
+    )
+
+
 def _apply_sort(
     photos: list[dict[str, Any]],
     sort: SortField | None,
@@ -117,7 +143,6 @@ def _apply_sort(
 
 @router.get(
     "",
-    response_model=PaginatedGalleryResponse,
     responses={
         200: {"description": "Successful Response"},
         500: {"description": "Internal Server Error"},
@@ -130,12 +155,12 @@ async def get_gallery(
     gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
     current_user: Annotated[User | None, Depends(get_current_user_optional)],
     token: Annotated[str | None, Depends(get_current_token)],
-    limit: int = Query(20, ge=1, le=100, description="Number of items per page"),
-    offset: int = Query(0, ge=0, description="Number of items to skip"),
-    page: int | None = Query(None, ge=1, description="Page number (alternative to offset)"),
-    sort: SortField | None = Query(None, description="Sort field: uploaded_at, likes_count, comments_count"),
-    order: SortOrder = Query(SortOrder.DESC, description="Sort order: asc or desc"),
-    fields: str | None = Query(None, description="Comma-separated list of fields to include"),
+    limit: Annotated[int, Query(ge=1, le=100, description="Number of items per page")] = 20,
+    offset: Annotated[int, Query(ge=0, description="Number of items to skip")] = 0,
+    page: Annotated[int | None, Query(ge=1, description="Page number (alternative to offset)")] = None,
+    sort: Annotated[SortField | None, Query(description="Sort field: uploaded_at, likes_count, comments_count")] = None,
+    order: Annotated[SortOrder, Query(description="Sort order: asc or desc")] = SortOrder.DESC,
+    fields: Annotated[str | None, Query(description="Comma-separated list of fields to include")] = None,
 ) -> PaginatedGalleryResponse:
     """
     Get cat images with pagination, sorting, and field selection.
@@ -153,14 +178,7 @@ async def get_gallery(
         # Improved caching for public gallery
         response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
 
-    # Parse fields filter
-    selected_fields: set[str] | None = None
-    if fields:
-        requested = {f.strip() for f in fields.split(",") if f.strip()}
-        selected_fields = requested & GALLERY_ALLOWED_FIELDS
-        # CatLocation is the response contract. Keep its required identity,
-        # image, and coordinate fields even when callers request a subset.
-        selected_fields.update({"id", "image_url", "latitude", "longitude"})
+    selected_fields = _selected_gallery_fields(fields)
 
     try:
         actual_offset = _calculate_offset(offset, page, limit)
@@ -176,20 +194,7 @@ async def get_gallery(
         )
 
         if not result["data"]:
-            total = int(result.get("total") or 0)
-            current_page = (actual_offset // limit) + 1 if limit > 0 else 1
-            total_pages = (total + limit - 1) // limit if total > 0 else 0
-            return PaginatedGalleryResponse(
-                images=[],
-                pagination=PaginationMeta(
-                    total=total,
-                    limit=limit,
-                    offset=actual_offset,
-                    has_more=bool(result.get("has_more", False)),
-                    page=current_page,
-                    total_pages=total_pages,
-                ),
-            )
+            return _empty_gallery_response(result, actual_offset, limit)
 
         # Sorting is now handled at the DB level via sort_field/sort_desc
         protected_data = protect_photo_locations(result["data"])
@@ -224,11 +229,11 @@ async def get_gallery(
 # ---- Locations endpoint ----
 
 
-@router.get("/locations", response_model=list[CatLocation])
+@router.get("/locations", responses={500: {"description": "Internal Server Error"}})
 async def get_locations(
     response: Response,
     gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
-    limit: int = Query(500, ge=1, le=500, description="Maximum number of legacy marker results"),
+    limit: Annotated[int, Query(ge=1, le=500, description="Maximum number of legacy marker results")] = 500,
 ) -> list[CatLocation]:
     """Get a bounded legacy marker list from Supabase."""
     response.headers["Cache-Control"] = "public, max-age=300"
@@ -247,16 +252,16 @@ async def get_locations(
 # ---- Viewport endpoint ----
 
 
-@router.get("/viewport", response_model=GalleryResponse)
+@router.get("/viewport", responses={500: {"description": "Internal Server Error"}})
 async def get_locations_in_viewport(
     response: Response,
     gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
     current_user: Annotated[User | None, Depends(get_current_user_optional)],
-    north: float = Query(..., description="North latitude bound"),
-    south: float = Query(..., description="South latitude bound"),
-    east: float = Query(..., description="East longitude bound"),
-    west: float = Query(..., description="West longitude bound"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of results"),
+    north: Annotated[float, Query(description="North latitude bound")],
+    south: Annotated[float, Query(description="South latitude bound")],
+    east: Annotated[float, Query(description="East longitude bound")],
+    west: Annotated[float, Query(description="West longitude bound")],
+    limit: Annotated[int, Query(ge=1, le=500, description="Maximum number of results")] = 100,
 ) -> GalleryResponse:
     """Get cat locations within a geographic viewport (bounding box)."""
     # PERF: Enable caching for viewport data so ETag middleware can work
@@ -291,19 +296,19 @@ async def get_locations_in_viewport(
 # ---- Search endpoint ----
 
 
-@router.get("/search", response_model=SearchResponse)
+@router.get("/search", responses={500: {"description": "Internal Server Error"}})
 @limiter.limit(get_api_limit)
 async def search_locations(
     request: Request,
     gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
     current_user: Annotated[User | None, Depends(get_current_user_optional)],
-    q: str | None = Query(None, description="Text to search in location name and description"),
-    tags: str | None = Query(None, description="Comma-separated list of tags to filter by"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of results"),
-    offset: int = Query(0, ge=0, description="Number of items to skip"),
-    page: int | None = Query(None, ge=1, description="Page number (alternative to offset)"),
-    sort: SortField | None = Query(None, description="Sort field"),
-    order: SortOrder = Query(SortOrder.DESC, description="Sort order"),
+    q: Annotated[str | None, Query(description="Text to search in location name and description")] = None,
+    tags: Annotated[str | None, Query(description="Comma-separated list of tags to filter by")] = None,
+    limit: Annotated[int, Query(ge=1, le=500, description="Maximum number of results")] = 100,
+    offset: Annotated[int, Query(ge=0, description="Number of items to skip")] = 0,
+    page: Annotated[int | None, Query(ge=1, description="Page number (alternative to offset)")] = None,
+    sort: Annotated[SortField | None, Query(description="Sort field")] = None,
+    order: Annotated[SortOrder, Query(description="Sort order")] = SortOrder.DESC,
 ) -> SearchResponse:
     """Search cat locations with optional text query and/or tag filters."""
     try:
@@ -347,13 +352,13 @@ async def search_locations(
 # ---- Popular tags endpoint ----
 
 
-@router.get("/popular-tags", response_model=PopularTagsResponse)
+@router.get("/popular-tags", responses={500: {"description": "Internal Server Error"}})
 @limiter.limit(get_api_limit)
 async def get_popular_tags(
     request: Request,
     response: Response,
     gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
-    limit: int = Query(20, ge=1, le=100, description="Number of top tags to return"),
+    limit: Annotated[int, Query(ge=1, le=100, description="Number of top tags to return")] = 20,
 ) -> PopularTagsResponse:
     """Get the most popular tags used across all cat photos."""
     response.headers["Cache-Control"] = "public, max-age=3600"
@@ -370,7 +375,10 @@ async def get_popular_tags(
 # ---- Single photo endpoint ----
 
 
-@router.get("/{photo_id}", response_model=CatLocation)
+@router.get(
+    "/{photo_id}",
+    responses={404: {"description": "Photo not found"}, 500: {"description": "Internal Server Error"}},
+)
 @limiter.limit(get_api_limit)
 async def get_photo(
     request: Request,
@@ -402,7 +410,11 @@ async def get_photo(
 # ---- Delete photo endpoint ----
 
 
-@router.delete("/{photo_id}", status_code=202)
+@router.delete(
+    "/{photo_id}",
+    status_code=202,
+    responses={404: {"description": "Photo not found or access denied"}, 500: {"description": "Internal Server Error"}},
+)
 async def delete_photo(
     photo_id: PhotoIdPath,
     background_tasks: BackgroundTasks,

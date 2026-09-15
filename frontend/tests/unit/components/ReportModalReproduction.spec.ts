@@ -176,7 +176,7 @@ describe('CatDetailModal Report Integration', () => {
       },
     });
 
-    const dialog = wrapper.get('[role="dialog"]');
+    const dialog = wrapper.get('dialog');
     expect(dialog.attributes('aria-modal')).toBe('true');
     expect(dialog.attributes('aria-labelledby')).toBe('cat-detail-title');
 

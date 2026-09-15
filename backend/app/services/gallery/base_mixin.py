@@ -1,12 +1,9 @@
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.compat import structlog
 from app.utils.supabase_client import AClient
-
-if TYPE_CHECKING:
-    pass
 
 logger = structlog.get_logger(__name__)
 

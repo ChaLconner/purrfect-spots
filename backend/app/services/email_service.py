@@ -8,7 +8,7 @@ from email.mime.text import MIMEText
 from app.logger import logger, sanitize_log_value
 
 WARN_SMTP_NOT_SET = "SMTP credentials not set. Skipping email send."
-DEBUG_SEPARATOR = "============================================"
+AUTOMATED_NOTIFICATION_FOOTER = "This is an automated notification."
 _email_executor = ThreadPoolExecutor(max_workers=5)
 
 
@@ -27,7 +27,7 @@ class EmailService:
         content_html: str,
         title_color: str = "#7FB7A4",
         border_color: str = "#eee",
-        footer_note: str = "This is an automated notification.",
+        footer_note: str = AUTOMATED_NOTIFICATION_FOOTER,
     ) -> str:
         """Construct a standardized HTML email template body."""
         return f"""
@@ -48,10 +48,7 @@ class EmailService:
         """Send password reset email"""
         if not self.smtp_user or not self.smtp_password:
             logger.warning(WARN_SMTP_NOT_SET)
-            logger.debug(DEBUG_SEPARATOR)
-            logger.debug(f"PASSWORD RESET LINK: {token}")
-            logger.debug(DEBUG_SEPARATOR)
-            return True
+            return False
 
         reset_link = token
         body = self._build_html_email(
@@ -69,10 +66,7 @@ class EmailService:
         """Send confirmation email for new signup"""
         if not self.smtp_user or not self.smtp_password:
             logger.warning(WARN_SMTP_NOT_SET)
-            logger.debug(DEBUG_SEPARATOR)
-            logger.debug(f"CONFIRMATION LINK: {confirmation_link}")
-            logger.debug(DEBUG_SEPARATOR)
-            return True
+            return False
 
         body = self._build_html_email(
             "Welcome to Purrfect Spots!",
@@ -92,12 +86,7 @@ class EmailService:
         """Send verification OTP code email"""
         if not self.smtp_user or not self.smtp_password:
             logger.warning(WARN_SMTP_NOT_SET)
-            logger.debug(DEBUG_SEPARATOR)
-            logger.debug(f"VERIFICATION OTP CODE: {otp_code}")
-            logger.debug("For email: %s", sanitize_log_value(to_email))
-            logger.debug(f"Expires in: {expires_minutes} minutes")
-            logger.debug(DEBUG_SEPARATOR)
-            return True
+            return False
 
         formatted_otp = " ".join(otp_code)
         body = f"""
@@ -185,7 +174,7 @@ class EmailService:
                 <p>Please review our guidelines to ensure future posts comply with our community standards.</p>
             """,
             title_color="#f0ad4e",
-            footer_note="This is an automated notification.",
+            footer_note=AUTOMATED_NOTIFICATION_FOOTER,
         )
         return self._send_html_email(
             to_email, "Content Removal Notice - Purrfect Spots", body, "content removal notification"
@@ -203,7 +192,7 @@ class EmailService:
                 <p>All your data has been removed from our systems in accordance with our retention policy.</p>
             """,
             title_color="#666",
-            footer_note="This is an automated notification.",
+            footer_note=AUTOMATED_NOTIFICATION_FOOTER,
         )
         return self._send_html_email(
             to_email, "Account Deleted - Purrfect Spots", body, "account deletion notification"

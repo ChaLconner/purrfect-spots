@@ -33,6 +33,7 @@ vi.mock('@/utils/oauth', () => ({
   }),
 }));
 vi.mock('@/utils/security', () => ({
+  MIN_PASSWORD_LENGTH: 15,
   getSafeRedirect: vi.fn((path: string | null, fallback: string) => path || fallback),
   redirectToTrustedExternalUrl: vi.fn(() => true),
 }));
@@ -113,22 +114,17 @@ describe('useAuthForm', () => {
       expect(AuthService.login).not.toHaveBeenCalled();
     });
 
-    it('should allow weak password for registration and leave strength to the UI meter', async () => {
+    it('should reject passwords shorter than eight characters for registration', async () => {
       const wrapper = mount(createTestComponent('register'));
       const vm = wrapper.vm as any;
       
       vm.form.name = 'Test User';
       vm.form.email = 'test@example.com';
       vm.form.password = 'short';
-
-      (AuthService.signup as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-        requires_verification: true,
-        email: 'test@example.com',
-      });
       
       await vm.handleSubmit();
-      expect(vm.formErrors.password).toBe('');
-      expect(AuthService.signup).toHaveBeenCalledWith('test@example.com', 'short', 'Test User');
+      expect(vm.formErrors.password).toBe('Password must be at least 15 characters');
+      expect(AuthService.signup).not.toHaveBeenCalled();
     });
   });
 
@@ -138,7 +134,7 @@ describe('useAuthForm', () => {
       const vm = wrapper.vm;
 
       vm.form.email = 'test@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
       
       const mockAuthData = { 
         user: { name: 'Test User' }, 
@@ -178,7 +174,7 @@ describe('useAuthForm', () => {
       const vm = wrapper.vm;
 
       vm.form.email = 'ordered@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
 
       (AuthService.login as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
         user: { name: 'Ordered User' },
@@ -196,7 +192,7 @@ describe('useAuthForm', () => {
 
       vm.form.name = 'New User';
       vm.form.email = 'new@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
       
       const mockAuthData = { 
         user: { name: 'New User' }, 
@@ -218,7 +214,7 @@ describe('useAuthForm', () => {
 
       vm.form.name = 'New User';
       vm.form.email = 'verify@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
 
       (AuthService.signup as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
         requires_verification: true,
@@ -243,7 +239,7 @@ describe('useAuthForm', () => {
 
       vm.form.name = 'Legacy User';
       vm.form.email = 'legacy@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
 
       (AuthService.signup as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
         message: 'Account created',
@@ -260,7 +256,7 @@ describe('useAuthForm', () => {
       const vm = wrapper.vm;
 
       vm.form.email = 'test@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
       
       (AuthService.login as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Invalid credentials'));
 
@@ -275,7 +271,7 @@ describe('useAuthForm', () => {
       const vm = wrapper.vm;
 
       vm.form.email = 'test@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
 
       (AuthService.login as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('Request failed with status code 401')
@@ -294,7 +290,7 @@ describe('useAuthForm', () => {
       const vm = wrapper.vm;
 
       vm.form.email = 'test@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
 
       (AuthService.login as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('Request failed with status code 503')

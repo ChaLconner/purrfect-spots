@@ -5,14 +5,12 @@ interface GoogleMapsLoaderOptions {
   apiKey: string;
   libraries?: string;
   version?: string;
-  callback?: string;
 }
 
 // Global state to track loading status
 let isLoading = false;
 let isLoaded = false;
 let loadPromise: Promise<void> | null = null;
-let pendingCallbacks: Array<() => void> = [];
 let hasInjectedPreconnectHints = false;
 
 const ensureGoogleMapsPreconnectHints = (): void => {
@@ -55,11 +53,11 @@ const ensureGoogleMapsPreconnectHints = (): void => {
  */
 export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<void> => {
   // If already loaded, resolve immediately
-  if (isLoaded && globalThis.google && globalThis.google.maps) {
+  if (isLoaded && globalThis.google?.maps) {
     return;
   }
 
-  // If currently loading, add to pending callbacks and return existing promise
+  // If currently loading, return the existing promise
   if (isLoading && loadPromise) {
     return loadPromise;
   }
@@ -91,10 +89,6 @@ export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<
 
       delete (globalThis as Record<string, unknown>)[callbackName];
 
-      // Execute all pending callbacks
-      pendingCallbacks.forEach((callback) => callback());
-      pendingCallbacks = [];
-
       resolve();
     };
 
@@ -107,9 +101,6 @@ export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<
       // Clean up the callback function on error
 
       delete (globalThis as Record<string, unknown>)[callbackName];
-
-      // Reject all pending promises
-      pendingCallbacks = []; // Clear pending callbacks on error
 
       // More specific error message
       reject(
@@ -130,9 +121,8 @@ export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<
         // Clean up
 
         delete (globalThis as Record<string, unknown>)[callbackName];
-        document.head.removeChild(script);
+        script.remove();
 
-        pendingCallbacks = [];
         reject(
           new Error(
             'Google Maps API loading timed out. Please check your internet connection and API key.'

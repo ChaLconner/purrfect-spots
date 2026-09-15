@@ -25,7 +25,7 @@
     <!-- Avatar -->
     <div class="flex-shrink-0 relative bg-stone-100 rounded-full">
       <img
-        :src="user.picture || getAvatarFallback(user.name)"
+        :src="getAvatarSrc(user.picture, user.name)"
         loading="lazy"
         referrerpolicy="no-referrer"
         class="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover border-2 md:border-4 border-white shadow-md"
@@ -78,7 +78,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
+import { getAvatarSrc, handleAvatarError } from '@/utils/avatar';
 
 export interface LeaderboardUser {
   id: string;

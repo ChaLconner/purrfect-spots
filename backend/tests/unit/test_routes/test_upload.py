@@ -34,7 +34,7 @@ async def test_server_side_detection_reports_service_unavailable() -> None:
 
 
 @pytest.fixture
-async def client() -> AsyncGenerator[AsyncClient, None]:
+async def client() -> AsyncGenerator[AsyncClient]:
     """Create test client using AsyncClient"""
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"

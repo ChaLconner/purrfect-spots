@@ -11,7 +11,8 @@ import { ConsentService, type ConsentRecord } from '@/services/consentService';
 import { showError, showSuccess } from '@/stores/toast';
 import { useFocusTrap, announce } from '@/composables/useAccessibility';
 import { useAuthStore } from '@/stores/authStore';
-import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
+import { getAvatarSrc, handleAvatarError } from '@/utils/avatar';
+import { MIN_PASSWORD_LENGTH } from '@/utils/security';
 import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
 import BaseInput from '@/components/ui/BaseInput.vue';
 import EyeIcon from '@/components/icons/EyeIcon.vue';
@@ -55,6 +56,10 @@ const passwordForm = reactive({
   confirm: '',
 });
 
+const passwordTooShort = computed(
+  () => passwordForm.new.length > 0 && passwordForm.new.length < MIN_PASSWORD_LENGTH
+);
+
 const deleteForm = reactive({
   confirmation: '',
 });
@@ -72,13 +77,13 @@ const isSocialUser = computed(() => {
 });
 
 const usernameUrlPreview = computed(() => {
-  const normalized = editForm.username.trim().replace(/^@+/, '').replace(/[^a-zA-Z0-9_]/g, '');
+  const normalized = editForm.username.trim().replace(/^@+/, '').replace(/\W/g, '');
   return normalized || 'username';
 });
 
 const publicProfileUrlPreview = computed(() => `@${usernameUrlPreview.value}`);
 const normalizedUsernameForSave = computed(() =>
-  editForm.username.trim().replace(/^@+/, '').replace(/[^a-zA-Z0-9_]/g, '')
+  editForm.username.trim().replace(/^@+/, '').replace(/\W/g, '')
 );
 
 const isAccountScheduledForDeletion = computed(() => {
@@ -145,6 +150,11 @@ const handleFileSelect = async (event: Event): Promise<void> => {
 };
 
 const updatePassword = async (): Promise<void> => {
+  if (passwordTooShort.value) {
+    showError(t('auth.passwordMinLength'));
+    return;
+  }
+
   if (passwordForm.new !== passwordForm.confirm) {
     showError(t('auth.passwordsDoNotMatch'));
     return;
@@ -292,10 +302,10 @@ const handleKeydown = (event: KeyboardEvent): void => {
       leave-from-class="opacity-100"
       leave-to-class="opacity-0"
     >
-      <div
+      <dialog
         v-if="isOpen"
-        class="fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-[200] p-4"
-        role="dialog"
+        open
+        class="fixed inset-0 z-[200] flex items-center justify-center border-0 bg-stone-900/40 p-4 backdrop-blur-sm"
         aria-modal="true"
         aria-labelledby="edit-profile-title"
         @click="handleBackdropClick"
@@ -334,7 +344,7 @@ const handleKeydown = (event: KeyboardEvent): void => {
               <div class="flex flex-col items-center mb-4 sm:mb-6">
                 <div class="relative group cursor-pointer" @click="triggerFileInput">
                   <img
-                    :src="editForm.picture || getAvatarFallback(editForm.name)"
+                    :src="getAvatarSrc(editForm.picture, editForm.name)"
                     referrerpolicy="no-referrer"
                     class="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-white shadow-md transition-transform group-hover:scale-105 bg-stone-100"
                     :alt="editForm.name ? `${editForm.name}` : 'Current profile'"
@@ -373,7 +383,7 @@ const handleKeydown = (event: KeyboardEvent): void => {
                 type="text"
                 :label="t('profile.name')"
                 :placeholder="t('profile.namePlaceholder')"
-                autocomplete="name"
+                v-bind="{ autocomplete: 'name' }"
                 required
               />
 
@@ -491,11 +501,12 @@ const handleKeydown = (event: KeyboardEvent): void => {
                           :type="showPasswords ? 'text' : 'password'"
                           autocomplete="new-password"
                           required
+                          :minlength="MIN_PASSWORD_LENGTH"
                           class="w-full px-4 sm:px-5 py-2.5 sm:py-3 bg-white/60 border-2 border-stone-200 rounded-xl sm:rounded-2xl focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 outline-none transition-all duration-300 text-sm sm:text-base text-brown pr-10"
                         />
                       </div>
                       <div class="mt-2">
-                        <PasswordStrengthMeter :password="passwordForm.new" />
+                        <PasswordStrengthMeter :value="passwordForm.new" />
                       </div>
                     </div>
                     <div>
@@ -522,6 +533,7 @@ const handleKeydown = (event: KeyboardEvent): void => {
                           isUpdatingPassword ||
                           !passwordForm.current ||
                           !passwordForm.new ||
+                          passwordTooShort ||
                           !passwordForm.confirm
                         "
                         class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg sm:rounded-xl text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
@@ -560,8 +572,13 @@ const handleKeydown = (event: KeyboardEvent): void => {
                     <span class="text-sm text-brown font-medium">
                       {{ t(`consent.types.${consentType}`) }}
                     </span>
-                    <label class="relative inline-flex items-center cursor-pointer">
+                    <label
+                      :for="`consent-${consentType}`"
+                      class="relative inline-flex items-center cursor-pointer"
+                    >
+                      <span class="sr-only">{{ t(`consent.types.${consentType}`) }}</span>
                       <input
+                        :id="`consent-${consentType}`"
                         type="checkbox"
                         :checked="isConsentGranted(consentType)"
                         class="sr-only peer"
@@ -694,7 +711,7 @@ const handleKeydown = (event: KeyboardEvent): void => {
             </button>
           </div>
         </div>
-      </div>
+      </dialog>
     </Transition>
   </Teleport>
 </template>

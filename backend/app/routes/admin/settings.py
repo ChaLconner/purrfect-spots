@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from app.dependencies import get_async_supabase_admin_client
 from app.logger import logger, sanitize_log_value
 from app.middleware.auth_middleware import require_permission
+from app.routes.admin.helpers import ADMIN_ERROR_RESPONSES
 from app.schemas.settings_schemas import (
     ConfigHistoryResponse,
     ConfigResponse,
@@ -22,7 +23,9 @@ from app.services.redis_service import redis_service
 router = APIRouter()
 
 
-PENDING_SETTINGS_CACHE_KEY = "admin_settings_pending"
+# Versioned so a deployment cannot serve a pending-settings cache populated by
+# the pre-redaction response shape.
+PENDING_SETTINGS_CACHE_KEY = "admin_settings_pending:v2"
 
 
 def _settings_cache_key(category: str | None) -> str:
@@ -43,6 +46,10 @@ async def _invalidate_settings_cache(config_key: str | None = None) -> None:
 SYSTEM_CONFIG_SELECT_FIELDS = (
     "key, value, type, description, category, is_public, is_encrypted, requires_approval, updated_at, updated_by"
 )
+
+
+def _mask_encrypted_value(value: Any, is_encrypted: bool) -> Any:
+    return None if is_encrypted else value
 
 
 async def _record_config_history(
@@ -68,7 +75,53 @@ async def _record_config_history(
     )
 
 
-@router.get("", response_model=list[ConfigResponse])
+def _prepare_setting_value(key: str, setting: dict[str, Any], update_data: ConfigUpdate) -> tuple[Any, Any, bool]:
+    value_to_store = update_data.value
+    old_value = setting["value"]
+    is_encrypted = bool(setting.get("is_encrypted", False))
+    if not is_encrypted:
+        return value_to_store, old_value, False
+    if update_data.value is None or (isinstance(update_data.value, str) and not update_data.value.strip()):
+        raise HTTPException(status_code=400, detail="Encrypted setting replacement cannot be empty")
+    try:
+        value_to_store = encryption_service.encrypt_value(update_data.value, setting.get("type", "string"))
+    except Exception as exc:
+        logger.error("Failed to encrypt setting %s: %s", sanitize_log_value(key), sanitize_log_value(str(exc)))
+        raise HTTPException(status_code=500, detail="Failed to encrypt sensitive setting") from exc
+    return value_to_store, old_value, True
+
+
+async def _create_pending_setting_change(
+    admin_client: Any,
+    key: str,
+    value_to_store: Any,
+    current_admin: User,
+    is_encrypted: bool,
+) -> dict[str, Any]:
+    pending = await (
+        admin_client.table("pending_config_changes")
+        .insert(
+            {
+                "config_key": key,
+                "proposed_value": value_to_store,
+                "requester_id": current_admin.id,
+                "status": "pending",
+            }
+        )
+        .execute()
+    )
+    requester_name = current_admin.name or current_admin.email
+    await line_service.send_notification(
+        f"\n[PURRFECT ADMIN]\n⚠️ Approval Required\nSetting: {key}\nRequested by: {requester_name}"
+    )
+    await _invalidate_settings_cache(key)
+    pending_response = dict(cast(dict[str, Any], pending.data[0]))
+    if is_encrypted:
+        pending_response["proposed_value"] = None
+    return pending_response
+
+
+@router.get("", response_model=list[ConfigResponse], responses=ADMIN_ERROR_RESPONSES)
 async def get_all_settings(
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
     category: Annotated[str | None, Query()] = None,
@@ -95,42 +148,47 @@ async def get_all_settings(
             if not cache_bust:
                 await redis_service.set(cache_key, raw_items, expire=120)
 
-        # SECURITY: Decrypt encrypted values before returning
-        decrypted_data = []
+        # SECURITY: Keep encrypted values server-side. Admins can replace a
+        # secret without receiving its plaintext through the browser.
+        masked_data = []
         for cached_item in raw_items:
             item = dict(cached_item)
-            if item.get("is_encrypted") and isinstance(item.get("value"), dict):
-                try:
-                    item["value"] = encryption_service.decrypt_value(item["value"])
-                    item["is_encrypted_display"] = True
-                except Exception as e:
-                    logger.warning(
-                        "Failed to decrypt setting %s: %s",
-                        str(item.get("key")).replace("\n", " "),
-                        str(e).replace("\n", " "),
-                    )
-                    item["value"] = "[ENCRYPTED - Unable to decrypt]"
-                    item["is_encrypted_display"] = True
-            decrypted_data.append(item)
+            if item.get("is_encrypted"):
+                item["value"] = None
+            masked_data.append(item)
 
-        return cast(list[dict[str, Any]], decrypted_data)
+        return cast(list[dict[str, Any]], masked_data)
     except Exception as e:
         logger.error("Failed to fetch settings: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch system settings")
 
 
-@router.get("/history/{key}", response_model=list[ConfigHistoryResponse])
+@router.get("/history/{key}", response_model=list[ConfigHistoryResponse], responses=ADMIN_ERROR_RESPONSES)
 async def get_setting_history(
     key: str, current_admin: Annotated[User, Depends(require_permission("system:settings"))]
 ) -> list[dict[str, Any]]:
     """Get evolution history for a specific setting."""
     try:
+        admin_client = await get_async_supabase_admin_client()
+        config_result = (
+            await admin_client.table("system_configs").select("is_encrypted").eq("key", key).maybe_single().execute()
+        )
+        config_data = cast(dict[str, Any], config_result.data) if config_result and config_result.data else {}
+        # If metadata is missing, do not assume a historical value is safe to
+        # disclose. Masking is the fail-closed response for stale records.
+        is_encrypted = bool(config_data.get("is_encrypted")) if config_data else True
+
         cache_key = _settings_history_cache_key(key)
         cached = await redis_service.get(cache_key)
         if cached is not None:
-            return cast(list[dict[str, Any]], cached)
+            cached_entries = []
+            for cached_item in cast(list[dict[str, Any]], cached):
+                entry = dict(cached_item)
+                entry["old_value"] = _mask_encrypted_value(entry.get("old_value"), is_encrypted)
+                entry["new_value"] = _mask_encrypted_value(entry.get("new_value"), is_encrypted)
+                cached_entries.append(entry)
+            return cached_entries
 
-        admin_client = await get_async_supabase_admin_client()
         result = (
             await admin_client.table("config_history")
             .select(
@@ -145,6 +203,8 @@ async def get_setting_history(
             entry = cast(dict[str, Any], item)
             user_info = entry.pop("user", None)
             entry["user_email"] = user_info.get("email") if isinstance(user_info, dict) else None
+            entry["old_value"] = _mask_encrypted_value(entry.get("old_value"), is_encrypted)
+            entry["new_value"] = _mask_encrypted_value(entry.get("new_value"), is_encrypted)
             history_entries.append(entry)
         await redis_service.set(cache_key, history_entries, expire=120)
         return history_entries
@@ -153,7 +213,7 @@ async def get_setting_history(
         raise HTTPException(status_code=500, detail="Failed to fetch config history")
 
 
-@router.put("/{key}", response_model=ConfigResponse | PendingConfigChangeResponse)
+@router.put("/{key}", response_model=ConfigResponse | PendingConfigChangeResponse, responses=ADMIN_ERROR_RESPONSES)
 async def update_setting(
     request: Request,
     key: str,
@@ -176,38 +236,11 @@ async def update_setting(
 
         setting = cast(dict[str, Any], check.data)
 
-        # SECURITY: Encrypt value if setting is marked as encrypted
-        value_to_store = update_data.value
-        old_value_for_history = setting["value"]
-        if setting.get("is_encrypted", False):
-            try:
-                encrypted = encryption_service.encrypt_value(update_data.value, setting.get("type", "string"))
-                value_to_store = encrypted
-            except Exception as e:
-                logger.error("Failed to encrypt setting %s: %s", sanitize_log_value(key), sanitize_log_value(str(e)))
-                raise HTTPException(status_code=500, detail="Failed to encrypt sensitive setting")
+        value_to_store, old_value_for_history, is_secret = _prepare_setting_value(key, setting, update_data)
 
         # Check if approval is required (Maker-Checker)
         if setting.get("requires_approval", False):
-            pending = (
-                await admin_client.table("pending_config_changes")
-                .insert(
-                    {
-                        "config_key": key,
-                        "proposed_value": value_to_store,
-                        "requester_id": current_admin.id,
-                        "status": "pending",
-                    }
-                )
-                .execute()
-            )
-
-            requester_name = current_admin.name or current_admin.email
-            msg = f"\n[PURRFECT ADMIN]\n⚠️ Approval Required\nSetting: {key}\nRequested by: {requester_name}"
-            await line_service.send_notification(msg)
-
-            await _invalidate_settings_cache(key)
-            return cast(dict[str, Any], pending.data[0])
+            return await _create_pending_setting_change(admin_client, key, value_to_store, current_admin, is_secret)
 
         # Immediate update if no approval needed
         update_values = {"value": value_to_store, "updated_by": current_admin.id}
@@ -225,7 +258,6 @@ async def update_setting(
         )
 
         # Log to Detailed Config History (sanitize encrypted secrets)
-        is_secret = setting.get("is_encrypted", False)
         history_old = "[ENCRYPTED_SECRET]" if is_secret else old_value_for_history
         history_new = "[ENCRYPTED_SECRET]" if is_secret else value_to_store
 
@@ -238,7 +270,9 @@ async def update_setting(
             reason="Direct administrative update",
         )
         await _invalidate_settings_cache(key)
-        return cast(dict[str, Any], result.data)
+        response_data = dict(cast(dict[str, Any], result.data))
+        response_data["value"] = _mask_encrypted_value(response_data.get("value"), is_secret)
+        return response_data
     except HTTPException:
         raise
     except Exception as e:
@@ -246,7 +280,7 @@ async def update_setting(
         raise HTTPException(status_code=500, detail="Failed to update system setting")
 
 
-@router.get("/pending", response_model=list[PendingConfigChangeResponse])
+@router.get("/pending", response_model=list[PendingConfigChangeResponse], responses=ADMIN_ERROR_RESPONSES)
 async def get_pending_changes(
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
     cache_bust: Annotated[str | None, Query()] = None,
@@ -270,19 +304,31 @@ async def get_pending_changes(
         pending_changes = cast(list[dict[str, Any]], result.data or [])
         config_keys = list({str(item["config_key"]) for item in pending_changes})
         current_values_by_key: dict[str, object | None] = {}
+        encrypted_keys: set[str] = set()
+        known_config_keys: set[str] = set()
 
         if config_keys:
             configs_res = await (
-                admin_client.table("system_configs").select("key, value").in_("key", config_keys).execute()
+                admin_client.table("system_configs")
+                .select("key, value, is_encrypted")
+                .in_("key", config_keys)
+                .execute()
             )
             configs_res_data = cast(list[dict[str, Any]], configs_res.data or [])
-            current_values_by_key = {str(config["key"]): config.get("value") for config in configs_res_data}
+            known_config_keys = {str(config["key"]) for config in configs_res_data}
+            current_values_by_key = {
+                str(config["key"]): _mask_encrypted_value(config.get("value"), bool(config.get("is_encrypted")))
+                for config in configs_res_data
+            }
+            encrypted_keys = {str(config["key"]) for config in configs_res_data if bool(config.get("is_encrypted"))}
 
         normalized_changes = []
         for item in pending_changes:
             requester_info = item.pop("requester", None)
             item["requester_email"] = requester_info.get("email") if isinstance(requester_info, dict) else None
             item["current_value"] = current_values_by_key.get(item["config_key"])
+            if item["config_key"] in encrypted_keys or item["config_key"] not in known_config_keys:
+                item["proposed_value"] = None
             normalized_changes.append(item)
 
         if not cache_bust:
@@ -330,7 +376,7 @@ async def _notify_change_requester(
             )
 
 
-@router.post("/approve/{change_id}", response_model=ConfigResponse)
+@router.post("/approve/{change_id}", response_model=ConfigResponse, responses=ADMIN_ERROR_RESPONSES)
 async def approve_change(
     change_id: str,
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
@@ -368,11 +414,12 @@ async def approve_change(
         )
 
         # 4. Record History
+        is_secret = bool(current_config.get("is_encrypted"))
         await _record_config_history(
             admin_client,
             config_key=change["config_key"],
-            old_value=current_config["value"],
-            new_value=change["proposed_value"],
+            old_value=_mask_encrypted_value(current_config.get("value"), is_secret),
+            new_value=_mask_encrypted_value(change.get("proposed_value"), is_secret),
             changed_by=current_admin.id,
             reason=f"Approved from Request {change_id}",
         )
@@ -389,7 +436,9 @@ async def approve_change(
         await _notify_change_requester(admin_client, change, "approved", current_admin)
 
         await _invalidate_settings_cache(change["config_key"])
-        return cast(dict[str, Any], update_result.data)
+        response_data = dict(cast(dict[str, Any], update_result.data))
+        response_data["value"] = _mask_encrypted_value(response_data.get("value"), is_secret)
+        return response_data
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
@@ -397,7 +446,7 @@ async def approve_change(
         raise HTTPException(status_code=500, detail="Approval process failed")
 
 
-@router.post("/reject/{change_id}", response_model=dict)
+@router.post("/reject/{change_id}", response_model=dict, responses=ADMIN_ERROR_RESPONSES)
 async def reject_change(
     change_id: str,
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],

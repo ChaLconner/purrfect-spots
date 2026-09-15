@@ -1,7 +1,7 @@
 import asyncio
 from collections import Counter
 from datetime import date, datetime, timedelta
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from postgrest.types import CountMethod
@@ -10,6 +10,7 @@ from app.dependencies import get_async_supabase_admin_client
 from app.limiter import limiter
 from app.logger import logger
 from app.middleware.auth_middleware import require_permission
+from app.routes.admin.helpers import ADMIN_ERROR_RESPONSES
 from app.schemas.user import User
 
 router = APIRouter()
@@ -150,11 +151,115 @@ async def _fetch_monthly_report_fallback(admin_client: Any, report_year: int) ->
     ]
 
 
-@router.get("/summary")
+def _dashboard_result(
+    total_users: int,
+    total_photos: int,
+    pending_reports: int,
+    total_reports: int,
+    trends: dict[str, Any],
+    monthly: list[Any],
+) -> dict[str, Any]:
+    return {
+        "stats": {
+            "total_users": total_users,
+            "total_photos": total_photos,
+            "pending_reports": pending_reports,
+            "total_reports": total_reports,
+        },
+        "trends": trends,
+        "monthly": monthly,
+        "generated_at": datetime.now().isoformat(),
+    }
+
+
+async def _fetch_dashboard_summary_rpc(admin_client: Any) -> dict[str, Any]:
+    stats_tasks = [
+        admin_client.table("users").select("id", count=CountMethod.exact).limit(1).execute(),
+        admin_client.table("cat_photos").select("id", count=CountMethod.exact).limit(1).execute(),
+        admin_client.table("reports").select("id", count=CountMethod.exact).eq("status", "pending").execute(),
+        admin_client.table("reports").select("id", count=CountMethod.exact).limit(1).execute(),
+    ]
+    all_res = await asyncio.gather(
+        *stats_tasks,
+        admin_client.rpc("get_admin_trends", {"days_back": 30}).execute(),
+        admin_client.rpc("get_monthly_report", {"report_year": datetime.now().year}).execute(),
+    )
+    user_res, photo_res, pending_res, total_res, trends_res, monthly_res = all_res
+    trends_data = cast(dict[str, Any], trends_res.data or {})
+    monthly_data = cast(list[Any], monthly_res.data or [])
+    if not trends_data:
+        trends_data = await _fetch_trends_fallback(admin_client, days_back=30)
+    if not monthly_data:
+        monthly_data = await _fetch_monthly_report_fallback(admin_client, datetime.now().year)
+    return _dashboard_result(
+        user_res.count or 0,
+        photo_res.count or 0,
+        pending_res.count or 0,
+        total_res.count or 0,
+        trends_data,
+        monthly_data,
+    )
+
+
+async def _safe_dashboard_count(
+    admin_client: Any,
+    table: str,
+    count_method: CountMethod = CountMethod.exact,
+    filters: dict[str, Any] | None = None,
+) -> int:
+    try:
+        query = admin_client.table(table).select("id", count=count_method)
+        for key, value in (filters or {}).items():
+            query = query.eq(key, value)
+        result = await query.limit(1).execute()
+        return result.count or 0
+    except Exception as exc:
+        logger.error("Fallback count failed for %s: %s", table, exc)
+        return 0
+
+
+async def _safe_dashboard_trends(admin_client: Any) -> dict[str, Any]:
+    try:
+        return await _fetch_trends_fallback(admin_client, days_back=30)
+    except Exception as exc:
+        logger.error("Fallback trends failed: %s", exc)
+        return {"users": [], "photos": [], "reports": []}
+
+
+async def _safe_dashboard_monthly(admin_client: Any) -> list[Any]:
+    try:
+        return await _fetch_monthly_report_fallback(admin_client, datetime.now().year)
+    except Exception as exc:
+        logger.error("Fallback monthly failed: %s", exc)
+        return []
+
+
+async def _fetch_dashboard_summary_fallback(admin_client: Any) -> dict[str, Any]:
+    total_users, total_photos, pending_reports, total_reports = await asyncio.gather(
+        _safe_dashboard_count(admin_client, "users"),
+        _safe_dashboard_count(admin_client, "cat_photos"),
+        _safe_dashboard_count(admin_client, "reports", filters={"status": "pending"}),
+        _safe_dashboard_count(admin_client, "reports"),
+    )
+    trends_data, monthly_data = await asyncio.gather(
+        _safe_dashboard_trends(admin_client),
+        _safe_dashboard_monthly(admin_client),
+    )
+    return _dashboard_result(
+        total_users,
+        total_photos,
+        pending_reports,
+        total_reports,
+        trends_data,
+        monthly_data,
+    )
+
+
+@router.get("/summary", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("10/minute")
 async def get_dashboard_summary(
     request: Request,
-    current_admin: User = Depends(require_permission("system:stats")),
+    current_admin: Annotated[User, Depends(require_permission("system:stats"))],
 ) -> dict[str, Any]:
     """
     Consolidated dashboard summary: stats, trends, and monthly data.
@@ -167,104 +272,18 @@ async def get_dashboard_summary(
 
     try:
         admin_client = await get_async_supabase_admin_client()
-
-        # Parallel fetch for all dashboard components
-        stats_tasks = [
-            admin_client.table("users").select("id", count=CountMethod.exact).limit(1).execute(),
-            admin_client.table("cat_photos").select("id", count=CountMethod.exact).limit(1).execute(),
-            admin_client.table("reports").select("id", count=CountMethod.exact).eq("status", "pending").execute(),
-            admin_client.table("reports").select("id", count=CountMethod.exact).limit(1).execute(),
-        ]
-        trends_task = admin_client.rpc("get_admin_trends", {"days_back": 30}).execute()
-        monthly_task = admin_client.rpc("get_monthly_report", {"report_year": datetime.now().year}).execute()
-
-        all_res = await asyncio.gather(*stats_tasks, trends_task, monthly_task)
-        user_res, photo_res, pending_res, total_res, trends_res, monthly_res = all_res
-
-        trends_data: dict[str, Any] = cast(Any, trends_res.data or {})
-        monthly_data: list[Any] = cast(Any, monthly_res.data or [])
-
-        if not trends_data:
-            trends_data = await _fetch_trends_fallback(admin_client, days_back=30)
-        if not monthly_data:
-            monthly_data = await _fetch_monthly_report_fallback(admin_client, datetime.now().year)
-
-        result = {
-            "stats": {
-                "total_users": user_res.count or 0,
-                "total_photos": photo_res.count or 0,
-                "pending_reports": pending_res.count or 0,
-                "total_reports": total_res.count or 0,
-            },
-            "trends": trends_data,
-            "monthly": monthly_data,
-            "generated_at": datetime.now().isoformat(),
-        }
-
-        # Cache for 5 minutes
+        result = await _fetch_dashboard_summary_rpc(admin_client)
         await redis_service.set(cache_key, result, expire=300)
         return result
-    except Exception as e:
-        logger.warning("Dashboard summary RPC path failed; retrying with Python fallback: %s", e, exc_info=True)
+    except Exception as exc:
+        logger.warning("Dashboard summary RPC path failed; retrying with Python fallback: %s", exc, exc_info=True)
         try:
             admin_client = await get_async_supabase_admin_client()
-
-            async def safe_count(
-                table: str,
-                count_method: CountMethod = CountMethod.exact,
-                filters: dict[str, Any] | None = None,
-            ) -> int:
-                try:
-                    query = admin_client.table(table).select("id", count=count_method)
-                    if filters:
-                        for k, v in filters.items():
-                            query = query.eq(k, v)
-                    res = await query.limit(1).execute()
-                    return res.count or 0
-                except Exception as query_err:
-                    logger.error(f"Fallback count failed for {table}: {query_err}")
-                    return 0
-
-            total_users, total_photos, pending_reports, total_reports = await asyncio.gather(
-                safe_count("users"),
-                safe_count("cat_photos"),
-                safe_count("reports", count_method=CountMethod.exact, filters={"status": "pending"}),
-                safe_count("reports"),
-            )
-
-            # Try to get trends and monthly data with their own catch-all
-            async def get_trends_safe() -> dict[str, Any]:
-                try:
-                    return await _fetch_trends_fallback(admin_client, days_back=30)
-                except Exception as trends_err:
-                    logger.error(f"Fallback trends failed: {trends_err}")
-                    return {"users": [], "photos": [], "reports": []}
-
-            async def get_monthly_safe() -> list[Any]:
-                try:
-                    return await _fetch_monthly_report_fallback(admin_client, datetime.now().year)
-                except Exception as monthly_err:
-                    logger.error(f"Fallback monthly failed: {monthly_err}")
-                    return []
-
-            trends_data, monthly_data = await asyncio.gather(get_trends_safe(), get_monthly_safe())
-
-            result = {
-                "stats": {
-                    "total_users": total_users,
-                    "total_photos": total_photos,
-                    "pending_reports": pending_reports,
-                    "total_reports": total_reports,
-                },
-                "trends": trends_data,
-                "monthly": monthly_data,
-                "generated_at": datetime.now().isoformat(),
-            }
+            result = await _fetch_dashboard_summary_fallback(admin_client)
             await redis_service.set(cache_key, result, expire=300)
             return result
         except Exception as fallback_error:
             logger.error("Failed to fetch dashboard summary (Ultimate Fallback): %s", fallback_error, exc_info=True)
-            # Return an empty but valid structure rather than 500ing
             return {
                 "stats": {"total_users": 0, "total_photos": 0, "pending_reports": 0, "total_reports": 0},
                 "trends": {"users": [], "photos": [], "reports": []},
@@ -297,11 +316,11 @@ async def _get_monthly_data_with_fallback(admin_client: Any, year: int) -> list[
     return await _fetch_monthly_report_fallback(admin_client, year)
 
 
-@router.get("/trends")
+@router.get("/trends", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("5/minute")
 async def get_system_trends(
     request: Request,
-    current_admin: User = Depends(require_permission("system:stats")),
+    current_admin: Annotated[User, Depends(require_permission("system:stats"))],
 ) -> dict[str, Any]:
     """
     Get 30-day activity trends.
@@ -321,12 +340,12 @@ async def get_system_trends(
         raise HTTPException(status_code=500, detail="Failed to fetch activity trends")
 
 
-@router.get("/monthly")
+@router.get("/monthly", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("5/minute")
 async def get_monthly_stats(
     request: Request,
+    current_admin: Annotated[User, Depends(require_permission("system:stats"))],
     year: int | None = None,
-    current_admin: User = Depends(require_permission("system:stats")),
 ) -> dict[str, Any]:
     """
     Get monthly system performance report.

@@ -9,6 +9,7 @@
     >
       <template #actions>
         <button
+type="button"
           class="inline-flex items-center gap-2 px-4 py-2 border border-sand-200 rounded-xl bg-white text-brown-600 text-sm font-bold shadow-sm transition-all hover:bg-sand-50"
           @click="exportUsers"
         >
@@ -83,7 +84,7 @@
                   <div class="h-10 w-10 flex-shrink-0">
                     <OptimizedImage
                       class="h-10 w-10 rounded-full object-cover"
-                      :src="user.picture || '/default-avatar.svg'"
+                      :src="sanitizeAvatarUrl(user.picture) || '/default-avatar.svg'"
                       :alt="user.name || ''"
                       :width="40"
                       :height="40"
@@ -98,7 +99,11 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <div v-if="canEditRole" class="relative inline-block w-32">
+                  <label :for="`user-role-${user.id}`" class="sr-only">
+                    {{ t('admin.users.table.role') }}
+                  </label>
                   <select
+                    :id="`user-role-${user.id}`"
                     :value="user.role?.toLowerCase()"
                     :disabled="updatingUserIds.has(user.id)"
                     class="block w-full pl-3 pr-10 py-1.5 text-xs font-semibold border-sand-200 rounded-lg bg-sand-50 focus:ring-terracotta-500 focus:border-terracotta-500 appearance-none cursor-pointer transition-all duration-200"
@@ -160,28 +165,32 @@
                 class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium flex gap-2 justify-end"
               >
                 <button
-                  v-if="canEditProfile"
+v-if="canEditProfile"
+                  type="button"
                   class="text-brown-600 hover:text-brown-900 font-medium transition-colors"
                   @click="openProfileModal(user)"
                 >
                   {{ t('admin.users.profile') }}
                 </button>
                 <button
-                  v-if="canBanUser(user) && !user.banned_at"
+v-if="canBanUser(user) && !user.banned_at"
+                  type="button"
                   class="text-orange-600 hover:text-orange-900 font-medium transition-colors disabled:opacity-50"
                   @click="openBanModal(user)"
                 >
                   {{ t('admin.users.banUser') }}
                 </button>
                 <button
-                  v-if="canBanUser(user) && user.banned_at"
+v-if="canBanUser(user) && user.banned_at"
+                  type="button"
                   class="text-green-600 hover:text-green-900 font-medium transition-colors disabled:opacity-50"
                   @click="confirmUnban(user)"
                 >
                   {{ t('admin.users.unban') }}
                 </button>
                 <button
-                  v-if="canDeleteUser(user)"
+v-if="canDeleteUser(user)"
+                  type="button"
                   class="text-red-600 hover:text-red-900 font-medium transition-colors disabled:opacity-50"
                   @click="confirmDelete(user)"
                 >
@@ -222,30 +231,33 @@
     >
       <div class="space-y-4 text-left">
         <div>
-          <label class="block text-sm font-medium text-brown-700 mb-1">
+          <label for="admin-user-name" class="block text-sm font-medium text-brown-700 mb-1">
             {{ t('admin.users.fullName') }}
           </label>
           <input
+            id="admin-user-name"
             v-model="profileForm.name"
             type="text"
             class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
           />
         </div>
         <div>
-          <label class="block text-sm font-medium text-brown-700 mb-1">
+          <label for="admin-user-bio" class="block text-sm font-medium text-brown-700 mb-1">
             {{ t('admin.users.bio') }}
           </label>
           <textarea
+            id="admin-user-bio"
             v-model="profileForm.bio"
             rows="3"
             class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
           ></textarea>
         </div>
         <div>
-          <label class="block text-sm font-medium text-brown-700 mb-1">
+          <label for="admin-user-picture" class="block text-sm font-medium text-brown-700 mb-1">
             {{ t('admin.users.pictureUrl') }}
           </label>
           <input
+            id="admin-user-picture"
             v-model="profileForm.picture"
             type="text"
             class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
@@ -267,10 +279,11 @@
       <div class="text-left">
         <p class="text-sm text-brown-600 mb-4">{{ t('admin.users.provideBanReason') }}</p>
         <div class="mb-2">
-          <label class="block text-sm font-medium text-brown-700 mb-2">
+          <label for="admin-ban-reason" class="block text-sm font-medium text-brown-700 mb-2">
             {{ t('admin.users.banReason') }}
           </label>
           <input
+            id="admin-ban-reason"
             v-model="banModal.reason"
             type="text"
             class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
@@ -302,6 +315,7 @@ import { useToast } from '@/composables/useToast';
 import { useAuthStore } from '@/stores/authStore';
 import { useAdminTable } from '@/composables/useAdminTable';
 import { OptimizedImage } from '@/components/ui';
+import { sanitizeAvatarUrl } from '@/utils/avatar';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
 import AdminPagination from '@/components/ui/AdminPagination.vue';
 import ActionModal from '@/components/ui/ActionModal.vue';
@@ -343,8 +357,8 @@ const {
   exportFileNamePrefix: 'users_export',
   formatExportRow: (user) => [
     user.id,
-    `"${(user.name || '').replace(/"/g, '""')}"`,
-    `"${(user.email || '').replace(/"/g, '""')}"`,
+    `"${(user.name || '').replaceAll('"', '""')}"`,
+    `"${(user.email || '').replaceAll('"', '""')}"`,
     user.role,
     user.created_at,
     user.banned_at || '',
@@ -397,18 +411,18 @@ const confirmModal = reactive({
 
 const formatRoleName = (role: string | undefined): string => {
   if (!role) return t('admin.users.roles.user');
-  const roleKey = role.toLowerCase().replace(/_/g, '');
+  const roleKey = role.toLowerCase().replaceAll('_', '');
   // Try to use translation if available
   const translation = t(`admin.users.roles.${roleKey}`);
   if (translation !== `admin.users.roles.${roleKey}`) return translation;
 
-  const name = role.toLowerCase().replace(/_/g, ' ');
+  const name = role.toLowerCase().replaceAll('_', ' ');
   return name.charAt(0).toUpperCase() + name.slice(1);
 };
 
 const isUserAdmin = (role: string | undefined): boolean => {
   if (!role) return false;
-  const normalizedRole = role.toLowerCase().replace(/_/g, '');
+  const normalizedRole = role.toLowerCase().replaceAll('_', '');
   return normalizedRole === 'admin' || normalizedRole === 'superadmin';
 };
 
@@ -672,8 +686,9 @@ const saveProfile = async (): Promise<void> => {
   }
 };
 
-onMounted(async () => {
+onMounted(() => {
   // Parallelize initial data fetching to improve load speed
-  await Promise.all([loadUsers(), loadRoles()]);
+  loadUsers();
+  void loadRoles();
 });
 </script>

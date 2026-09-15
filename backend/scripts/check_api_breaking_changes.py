@@ -112,55 +112,100 @@ def _check_parameter_changes(
     current_document: dict[str, Any],
 ) -> list[dict]:
     """Check parameter presence, requiredness, and input schema compatibility."""
-    changes = []
     baseline_params = {(p["name"], p.get("in", "query")): p for p in baseline_spec.get("parameters", [])}
     current_params = {(p["name"], p.get("in", "query")): p for p in current_spec.get("parameters", [])}
+    changes = [
+        change
+        for (param_name, location), param in baseline_params.items()
+        for change in _check_single_parameter_change(
+            path,
+            method,
+            param_name,
+            location,
+            param,
+            current_params.get((param_name, location)),
+            baseline_document,
+            current_document,
+        )
+    ]
 
-    for (param_name, location), param in baseline_params.items():
-        parameter_path = f"{method.upper()} {path} parameter {param_name} ({location})"
-        if param.get("required", False) and (param_name, location) not in current_params:
-            changes.append(
+    changes.extend(
+        _check_request_body_changes(
+            path,
+            method,
+            baseline_spec.get("requestBody"),
+            current_spec.get("requestBody"),
+            baseline_document,
+            current_document,
+        )
+    )
+    return changes
+
+
+def _check_single_parameter_change(
+    path: str,
+    method: str,
+    param_name: str,
+    location: str,
+    param: dict,
+    current_param: dict | None,
+    baseline_document: dict[str, Any],
+    current_document: dict[str, Any],
+) -> list[dict]:
+    operation_path = f"{method.upper()} {path}"
+    parameter_path = f"{operation_path} parameter {param_name} ({location})"
+    if current_param is None:
+        if param.get("required", False):
+            return [
                 {
                     "type": "required_param_removed",
-                    "path": f"{method.upper()} {path}",
-                    "message": f"❌ Required parameter removed: {param_name} from {method.upper()} {path}",
+                    "path": operation_path,
+                    "message": f"❌ Required parameter removed: {param_name} from {operation_path}",
                 }
-            )
-            continue
+            ]
+        return []
 
-        current_param = current_params.get((param_name, location))
-        if current_param is None:
-            continue
-        if param.get("required", False) and not current_param.get("required", False):
-            changes.append(
-                {
-                    "type": "required_param_relaxed",
-                    "path": f"{method.upper()} {path}",
-                    "message": f"❌ Required parameter is now optional: {param_name} from {method.upper()} {path}",
-                }
-            )
-        changes.extend(
-            _compare_schema(
-                param.get("schema", {}),
-                current_param.get("schema", {}),
-                parameter_path,
-                "parameter_schema_changed",
-                baseline_document,
-                current_document,
-            )
-        )
-
-    baseline_body = baseline_spec.get("requestBody")
-    current_body = current_spec.get("requestBody")
-    if baseline_body and not current_body:
+    changes = []
+    if param.get("required", False) and not current_param.get("required", False):
         changes.append(
             {
-                "type": "request_body_removed",
-                "path": f"{method.upper()} {path}",
-                "message": f"❌ Request body removed from {method.upper()} {path}",
+                "type": "required_param_relaxed",
+                "path": operation_path,
+                "message": f"❌ Required parameter is now optional: {param_name} from {operation_path}",
             }
         )
-    elif isinstance(baseline_body, dict) and isinstance(current_body, dict):
+    changes.extend(
+        _compare_schema(
+            param.get("schema", {}),
+            current_param.get("schema", {}),
+            parameter_path,
+            "parameter_schema_changed",
+            baseline_document,
+            current_document,
+        )
+    )
+    return changes
+
+
+def _check_request_body_changes(
+    path: str,
+    method: str,
+    baseline_body: dict | None,
+    current_body: dict | None,
+    baseline_document: dict[str, Any],
+    current_document: dict[str, Any],
+) -> list[dict]:
+    operation_path = f"{method.upper()} {path}"
+    changes: list[dict] = []
+    if baseline_body and not current_body:
+        return [
+            {
+                "type": "request_body_removed",
+                "path": operation_path,
+                "message": f"❌ Request body removed from {operation_path}",
+            }
+        ]
+    if isinstance(baseline_body, dict) and isinstance(current_body, dict):
         baseline_content = baseline_body.get("content", {})
         current_content = current_body.get("content", {})
         for media_type, media_spec in baseline_content.items():
@@ -168,8 +213,8 @@ def _check_parameter_changes(
                 changes.append(
                     {
                         "type": "request_content_type_removed",
-                        "path": f"{method.upper()} {path}",
-                        "message": f"❌ Request content type removed: {media_type} from {method.upper()} {path}",
+                        "path": operation_path,
+                        "message": f"❌ Request content type removed: {media_type} from {operation_path}",
                     }
                 )
                 continue
@@ -177,7 +222,7 @@ def _check_parameter_changes(
                 _compare_schema(
                     media_spec.get("schema", {}),
                     current_content[media_type].get("schema", {}),
-                    f"{method.upper()} {path} request body ({media_type})",
+                    f"{operation_path} request body ({media_type})",
                     "request_schema_changed",
                     baseline_document,
                     current_document,
@@ -266,6 +311,146 @@ def _resolve_schema(schema: Any, document: dict[str, Any]) -> dict[str, Any]:
     return resolved
 
 
+def _schema_change(change_type: str, location: str, message: str) -> dict:
+    return {"type": change_type, "path": location, "message": f"❌ {message} at {location}"}
+
+
+def _same_schema_reference(baseline_schema: Any, alternative: Any) -> bool:
+    return (
+        isinstance(baseline_schema, dict)
+        and isinstance(alternative, dict)
+        and bool(baseline_schema.get("$ref"))
+        and baseline_schema.get("$ref") == alternative.get("$ref")
+    )
+
+
+def _composition_accepts_baseline(
+    baseline_schema: Any,
+    current: dict,
+    location: str,
+    change_type: str,
+    baseline_document: dict[str, Any],
+    current_document: dict[str, Any],
+) -> bool:
+    for composition_key in ("anyOf", "oneOf"):
+        alternatives = current.get(composition_key)
+        if not isinstance(alternatives, list):
+            continue
+        for alternative in alternatives:
+            if _same_schema_reference(baseline_schema, alternative) or not _compare_schema(
+                baseline_schema,
+                alternative,
+                location,
+                change_type,
+                baseline_document,
+                current_document,
+            ):
+                return True
+    return False
+
+
+def _compare_basic_schema(baseline: dict, current: dict, location: str, change_type: str) -> tuple[list[dict], bool]:
+    changes: list[dict] = []
+    baseline_type = baseline.get("type")
+    current_type = current.get("type")
+    if baseline_type and current_type and baseline_type != current_type:
+        return [
+            _schema_change(change_type, location, f"Schema type changed from {baseline_type} to {current_type}")
+        ], False
+    if baseline.get("format") and current.get("format") and baseline["format"] != current["format"]:
+        changes.append(_schema_change(change_type, location, "Schema format changed"))
+    if baseline.get("nullable", False) and not current.get("nullable", False):
+        changes.append(_schema_change(change_type, location, "Schema is no longer nullable"))
+
+    baseline_enum = baseline.get("enum")
+    current_enum = current.get("enum")
+    if (
+        isinstance(baseline_enum, list)
+        and isinstance(current_enum, list)
+        and not set(baseline_enum).issubset(current_enum)
+    ):
+        changes.append(_schema_change(change_type, location, "Schema enum removed previously accepted values"))
+
+    comparisons = (
+        ("minLength", lambda old, new: new > old),
+        ("minItems", lambda old, new: new > old),
+        ("minimum", lambda old, new: new > old),
+        ("exclusiveMinimum", lambda old, new: new > old),
+        ("maxLength", lambda old, new: new < old),
+        ("maxItems", lambda old, new: new < old),
+        ("maximum", lambda old, new: new < old),
+        ("exclusiveMaximum", lambda old, new: new < old),
+    )
+    for keyword, comparison in comparisons:
+        old_value = baseline.get(keyword)
+        new_value = current.get(keyword)
+        if (
+            isinstance(old_value, (int, float))
+            and isinstance(new_value, (int, float))
+            and comparison(old_value, new_value)
+        ):
+            changes.append(_schema_change(change_type, location, f"Schema constraint {keyword} became stricter"))
+    return changes, True
+
+
+def _compare_object_schema(
+    baseline: dict,
+    current: dict,
+    location: str,
+    change_type: str,
+    baseline_document: dict[str, Any],
+    current_document: dict[str, Any],
+) -> list[dict]:
+    changes: list[dict] = []
+    baseline_required = set(baseline.get("required", []))
+    current_required = set(current.get("required", []))
+    if not baseline_required.issubset(current_required):
+        changes.append(_schema_change(change_type, location, "Required response/request fields were removed"))
+    if change_type.startswith(("request_", "parameter_")) and not current_required.issubset(baseline_required):
+        changes.append(_schema_change(change_type, location, "Required request fields were added"))
+
+    baseline_properties = baseline.get("properties", {})
+    current_properties = current.get("properties", {})
+    for property_name, property_schema in baseline_properties.items():
+        if property_name not in current_properties:
+            changes.append(_schema_change(change_type, location, f"Schema property removed: {property_name}"))
+            continue
+        changes.extend(
+            _compare_schema(
+                property_schema,
+                current_properties[property_name],
+                f"{location}.{property_name}",
+                change_type,
+                baseline_document,
+                current_document,
+            )
+        )
+
+    if baseline.get("additionalProperties") is not False and current.get("additionalProperties") is False:
+        changes.append(_schema_change(change_type, location, "Schema no longer accepts additional properties"))
+    return changes
+
+
+def _compare_array_schema(
+    baseline: dict,
+    current: dict,
+    location: str,
+    change_type: str,
+    baseline_document: dict[str, Any],
+    current_document: dict[str, Any],
+) -> list[dict]:
+    if baseline.get("type") != "array" or "items" not in baseline:
+        return []
+    return _compare_schema(
+        baseline["items"],
+        current.get("items", {}),
+        f"{location}[]",
+        change_type,
+        baseline_document,
+        current_document,
+    )
+
+
 def _compare_schema(
     baseline_schema: Any,
     current_schema: Any,
@@ -292,110 +477,19 @@ def _compare_schema(
     # or an accepted/background-job result. If the previous schema remains one
     # of the current alternatives, the response contract was widened rather
     # than broken.
-    for composition_key in ("anyOf", "oneOf"):
-        alternatives = current.get(composition_key)
-        if isinstance(alternatives, list):
-            for alternative in alternatives:
-                if (
-                    isinstance(baseline_schema, dict)
-                    and isinstance(alternative, dict)
-                    and baseline_schema.get("$ref")
-                    and baseline_schema.get("$ref") == alternative.get("$ref")
-                ):
-                    return []
-                if not _compare_schema(
-                    baseline,
-                    alternative,
-                    location,
-                    change_type,
-                    baseline_document,
-                    current_document,
-                ):
-                    return []
+    if _composition_accepts_baseline(
+        baseline_schema, current, location, change_type, baseline_document, current_document
+    ):
+        return []
 
-    changes: list[dict] = []
-
-    def add(message: str) -> None:
-        changes.append({"type": change_type, "path": location, "message": f"❌ {message} at {location}"})
-
-    baseline_type = baseline.get("type")
-    current_type = current.get("type")
-    if baseline_type and current_type and baseline_type != current_type:
-        add(f"Schema type changed from {baseline_type} to {current_type}")
+    changes, type_compatible = _compare_basic_schema(baseline, current, location, change_type)
+    if not type_compatible:
         return changes
-    if baseline.get("format") and current.get("format") and baseline["format"] != current["format"]:
-        add(f"Schema format changed from {baseline['format']} to {current['format']}")
-    if baseline.get("nullable", False) and not current.get("nullable", False):
-        add("Schema is no longer nullable")
-
-    baseline_enum = baseline.get("enum")
-    current_enum = current.get("enum")
-    if (
-        isinstance(baseline_enum, list)
-        and isinstance(current_enum, list)
-        and not set(baseline_enum).issubset(current_enum)
-    ):
-        add("Schema enum removed previously accepted values")
-
-    for keyword, comparison in (
-        ("minLength", lambda old, new: new > old),
-        ("minItems", lambda old, new: new > old),
-        ("minimum", lambda old, new: new > old),
-        ("exclusiveMinimum", lambda old, new: new > old),
-        ("maxLength", lambda old, new: new < old),
-        ("maxItems", lambda old, new: new < old),
-        ("maximum", lambda old, new: new < old),
-        ("exclusiveMaximum", lambda old, new: new < old),
-    ):
-        old_value = baseline.get(keyword)
-        new_value = current.get(keyword)
-        if (
-            isinstance(old_value, (int, float))
-            and isinstance(new_value, (int, float))
-            and comparison(old_value, new_value)
-        ):
-            add(f"Schema constraint {keyword} became stricter")
-
-    if baseline_type == "object" or "properties" in baseline:
-        baseline_required = set(baseline.get("required", []))
-        current_required = set(current.get("required", []))
-        if not baseline_required.issubset(current_required):
-            add("Required response/request fields were removed")
-        if change_type.startswith(("request_", "parameter_")) and not current_required.issubset(baseline_required):
-            add("Required request fields were added")
-
-        baseline_properties = baseline.get("properties", {})
-        current_properties = current.get("properties", {})
-        for property_name, property_schema in baseline_properties.items():
-            if property_name not in current_properties:
-                add(f"Schema property removed: {property_name}")
-                continue
-            changes.extend(
-                _compare_schema(
-                    property_schema,
-                    current_properties[property_name],
-                    f"{location}.{property_name}",
-                    change_type,
-                    baseline_document,
-                    current_document,
-                )
-            )
-
-        if baseline.get("additionalProperties") is not False and current.get("additionalProperties") is False:
-            add("Schema no longer accepts additional properties")
-
-    if baseline_type == "array" and "items" in baseline:
+    if baseline.get("type") == "object" or "properties" in baseline:
         changes.extend(
-            _compare_schema(
-                baseline["items"],
-                current.get("items", {}),
-                f"{location}[]",
-                change_type,
-                baseline_document,
-                current_document,
-            )
+            _compare_object_schema(baseline, current, location, change_type, baseline_document, current_document)
         )
-
+    changes.extend(_compare_array_schema(baseline, current, location, change_type, baseline_document, current_document))
     return changes
 
 
@@ -455,7 +549,7 @@ def check_non_breaking_changes(baseline: dict, current: dict) -> list[dict]:
     return warnings
 
 
-def main() -> int:
+def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Check for API breaking changes")
     parser.add_argument(
         "--baseline",
@@ -472,77 +566,95 @@ def main() -> int:
     parser.add_argument(
         "--update-baseline", action="store_true", help="Update baseline with current schema after check"
     )
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def _write_baseline(path: Path, schema: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as baseline_file:
+        json.dump(schema, baseline_file, indent=2, ensure_ascii=False)
+
+
+def _handle_missing_baseline(path: Path, update_baseline: bool) -> int:
+    print(f"⚠️ No baseline found at {path}")
+    print("   Run with --update-baseline to create initial baseline")
+    if not update_baseline:
+        return 1
+
+    _write_baseline(path, get_current_schema())
+    print(f"✅ Created baseline at {path}")
+    return 0
+
+
+def _report_changes(breaking_changes: list[dict], warnings: list[dict]) -> None:
+    if warnings:
+        print("📝 Non-breaking changes detected:")
+        for warning in warnings:
+            print(f"   {warning['message']}")
+        print()
+
+    if not breaking_changes:
+        print("✅ No breaking changes detected!")
+        return
+
+    print("🚨 BREAKING CHANGES DETECTED:")
+    for change in breaking_changes:
+        print(f"   {change['message']}")
+    print()
+    print(f"Total: {len(breaking_changes)} breaking change(s)")
+
+
+def _handle_breaking_changes(
+    breaking_changes: list[dict],
+    fail_on_breaking: bool,
+    update_baseline: bool,
+    baseline_path: Path,
+    current: dict[str, Any],
+) -> int:
+    if not breaking_changes:
+        if update_baseline:
+            _write_baseline(baseline_path, current)
+            print(f"\n✅ Baseline updated at {baseline_path}")
+        return 0
+
+    if update_baseline:
+        _write_baseline(baseline_path, current)
+        print(f"\n✅ Baseline updated at {baseline_path}")
+        return 0
+    if not fail_on_breaking:
+        return 0
+
+    print("\n❌ CI check failed due to breaking changes.")
+    print("   If these changes are intentional, update the baseline:")
+    print("   python scripts/check_api_breaking_changes.py --update-baseline")
+    return 1
+
+
+def main() -> int:
+    args = _parse_args()
 
     baseline_path = Path(args.baseline)
 
-    # Check if baseline exists
     if not baseline_path.exists():
-        print(f"⚠️ No baseline found at {baseline_path}")
-        print("   Run with --update-baseline to create initial baseline")
+        return _handle_missing_baseline(baseline_path, args.update_baseline)
 
-        if args.update_baseline:
-            current = get_current_schema()
-            baseline_path.parent.mkdir(parents=True, exist_ok=True)
-            with baseline_path.open("w", encoding="utf-8") as f:
-                json.dump(current, f, indent=2, ensure_ascii=False)
-            print(f"✅ Created baseline at {baseline_path}")
-            return 0
-        return 1
-
-    # Load schemas
-    try:
-        print(f"Loading baseline from: {baseline_path}")
-    except UnicodeEncodeError:
-        print(f"Loading baseline from: {baseline_path}")
+    print(f"Loading baseline from: {baseline_path}")
     baseline = load_schema(str(baseline_path))
 
     print("📋 Getting current schema from FastAPI app...")
     current = get_current_schema()
-
-    # Compare
     print("\n🔍 Checking for breaking changes...\n")
 
     breaking_changes = compare_schemas(baseline, current)
     warnings = check_non_breaking_changes(baseline, current)
-
-    # Report warnings
-    if warnings:
-        print("📝 Non-breaking changes detected:")
-        for w in warnings:
-            print(f"   {w['message']}")
-        print()
-
-    # Report breaking changes
-    if breaking_changes:
-        print("🚨 BREAKING CHANGES DETECTED:")
-        for bc in breaking_changes:
-            print(f"   {bc['message']}")
-        print()
-        print(f"Total: {len(breaking_changes)} breaking change(s)")
-
-        # Update baseline if requested before potentially exiting
-        if args.update_baseline:
-            with baseline_path.open("w", encoding="utf-8") as f:
-                json.dump(current, f, indent=2, ensure_ascii=False)
-            print(f"\n✅ Baseline updated at {baseline_path}")
-            return 0  # If we updated the baseline, it's considered successfully acknowledged
-
-        if args.fail_on_breaking:
-            print("\n❌ CI check failed due to breaking changes.")
-            print("   If these changes are intentional, update the baseline:")
-            print("   python scripts/check_api_breaking_changes.py --update-baseline")
-            return 1
-    else:
-        print("✅ No breaking changes detected!")
-
-        # Update baseline if requested
-        if args.update_baseline:
-            with baseline_path.open("w", encoding="utf-8") as f:
-                json.dump(current, f, indent=2, ensure_ascii=False)
-            print(f"\n✅ Baseline updated at {baseline_path}")
-
-    return 0
+    _report_changes(breaking_changes, warnings)
+    return _handle_breaking_changes(
+        breaking_changes,
+        args.fail_on_breaking,
+        args.update_baseline,
+        baseline_path,
+        current,
+    )
 
 
 if __name__ == "__main__":

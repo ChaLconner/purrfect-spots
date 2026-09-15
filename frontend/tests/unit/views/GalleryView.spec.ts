@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { shallowMount } from '@vue/test-utils';
+import { flushPromises, shallowMount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import GalleryView from '@/views/GalleryView.vue';
 import { GalleryService } from '@/services/galleryService';
@@ -144,7 +144,9 @@ describe('GalleryView.vue', () => {
     await nextTick();
     await nextTick();
 
-    expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(true);
+    await flushPromises();
+    await nextTick();
+    expect(wrapper.find('empty-state-stub').exists()).toBe(true);
   });
 
   it('triggers search when gallerySearchQuery in store changes', async () => {
@@ -208,7 +210,7 @@ describe('GalleryView.vue', () => {
     await nextTick();
     await nextTick();
 
-    expect(wrapper.vm.visibleImages.length).toBe(1);
+    expect(wrapper.vm.visibleImages).toHaveLength(1);
 
     // Mock second page
     vi.mocked(GalleryService.getImages).mockResolvedValue({
@@ -219,7 +221,7 @@ describe('GalleryView.vue', () => {
     await wrapper.vm.loadMoreImages();
     await nextTick();
 
-    expect(wrapper.vm.visibleImages.length).toBe(2);
+    expect(wrapper.vm.visibleImages).toHaveLength(2);
   });
 
   it('syncs state from URL for deep linked image', async () => {
@@ -244,6 +246,8 @@ describe('GalleryView.vue', () => {
     await nextTick();
     await nextTick();
 
+    await flushPromises();
+    await nextTick();
     expect(GalleryService.getPhotoById).toHaveBeenCalledWith('deep-1');
     expect(wrapper.vm.selectedImage).toEqual(mockPhoto);
     expect(wrapper.vm.isDeepLinked).toBe(true);
@@ -265,7 +269,9 @@ describe('GalleryView.vue', () => {
     await nextTick();
     await nextTick();
 
+    await flushPromises();
+    await nextTick();
     expect(wrapper.vm.error).toBe('Network error');
-    expect(wrapper.findComponent({ name: 'ErrorState' }).exists()).toBe(true);
+    expect(wrapper.find('error-state-stub').exists()).toBe(true);
   });
 });

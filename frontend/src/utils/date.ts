@@ -19,7 +19,7 @@ export const formatDate = (
   if (!dateStr) return 'N/A';
   try {
     const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return 'N/A';
+    if (Number.isNaN(date.getTime())) return 'N/A';
 
     if (options) {
       return new Intl.DateTimeFormat(resolveLocale(locale), options).format(date);
@@ -48,7 +48,7 @@ export const formatTimestamp = (
   if (!dateStr) return 'N/A';
   try {
     const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return 'N/A';
+    if (Number.isNaN(date.getTime())) return 'N/A';
 
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');

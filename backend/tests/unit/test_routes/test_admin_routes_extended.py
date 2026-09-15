@@ -348,6 +348,31 @@ class TestAdminContentRoutes:
         assert response.status_code == 200
         assert len(response.json()["data"]) == 1
 
+    def test_list_reports_rejects_invalid_date_filter(self, client, override_admin, mock_supabase_admin) -> None:
+        with patch(
+            "app.routes.admin.reports.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ) as get_admin_client:
+            response = client.get("/api/v1/admin/reports?start_date=not-a-date")
+
+        assert response.status_code == 422
+        get_admin_client.assert_not_awaited()
+
+    def test_list_reports_normalizes_valid_date_filters(self, client, override_admin, mock_supabase_admin) -> None:
+        mock_supabase_admin.execute.return_value = MagicMock(data=[])
+
+        with patch(
+            "app.routes.admin.reports.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
+            response = client.get("/api/v1/admin/reports?start_date=2026-01-01&end_date=2026-01-31")
+
+        assert response.status_code == 200
+        mock_supabase_admin.gte.assert_called_once_with("created_at", "2026-01-01")
+        mock_supabase_admin.lte.assert_called_once_with("created_at", "2026-01-31")
+
     def test_update_report_success(self, client, override_admin, mock_supabase_admin) -> None:
         """Test updating report status"""
         report_id = "00000000-0000-0000-0000-000000000003"

@@ -16,7 +16,7 @@ from app.middleware.auth_middleware import (
     invalidate_user_auth_cache,
     require_permission,
 )
-from app.routes.admin.helpers import CommonPagination
+from app.routes.admin.helpers import ADMIN_ERROR_RESPONSES, CommonPagination
 from app.schemas.admin_schemas import BulkUserAction, RoleUpdateAdmin, UserBan, UserUpdateAdmin
 from app.schemas.user import User
 from app.services.email_service import EmailService
@@ -24,6 +24,7 @@ from app.services.redis_service import redis_service
 from app.services.subscription_service import cancel_customer_subscriptions
 from app.services.token_service import get_token_service
 from app.utils.audit_logger import log_admin_action
+from app.utils.avatar import sanitize_avatar_url
 from app.utils.security_alerts import track_bulk_operation
 
 router = APIRouter()
@@ -34,6 +35,49 @@ UserIdPath = Annotated[UUID, Path(title="The ID of the user", description="Must 
 async def _invalidate_user_list_cache() -> None:
     """Invalidate all admin user list cache pages after any mutation."""
     await redis_service.delete_pattern("admin_users:*")
+
+
+def _sanitize_user_picture(user_data: dict[str, Any]) -> dict[str, Any]:
+    """Prevent legacy or manually altered avatar data from reaching clients."""
+    sanitized = user_data.copy()
+    sanitized["picture"] = sanitize_avatar_url(sanitized.get("picture"))
+    return sanitized
+
+
+ADMIN_USER_SORT_FIELDS = {"created_at", "email", "name", "treat_balance", "role"}
+USER_NOT_FOUND_DETAIL = "User not found"
+
+
+def _build_user_list_query(admin_client: Any, pagination: CommonPagination, search: str | None) -> Any:
+    query = (
+        admin_client.table("users")
+        .select(
+            "id, email, name, picture, treat_balance, is_pro, created_at, banned_at, roles(name)",
+            count=CountMethod.exact,
+        )
+        .range(pagination.offset, pagination.offset + pagination.limit - 1)
+    )
+    sort_field = pagination.sort_by if pagination.sort_by in ADMIN_USER_SORT_FIELDS else "created_at"
+    if sort_field != "role":
+        query = query.order(sort_field, desc=pagination.order == "desc")
+    if search:
+        clean_search = "".join(c for c in search if c.isalnum() or c in (" ", "_", "-", "@", ".")).strip()
+        if clean_search:
+            query = cast(Any, query.or_(f"email.ilike.%{clean_search}%,name.ilike.%{clean_search}%"))
+    return query
+
+
+def _normalize_admin_user(user: dict[str, Any]) -> dict[str, Any]:
+    user_copy = user.copy()
+    role_info = user_copy.pop("roles", None)
+    if isinstance(role_info, dict):
+        role_name = role_info.get("name", "user")
+    elif isinstance(role_info, list) and role_info:
+        role_name = role_info[0].get("name", "user")
+    else:
+        role_name = "user"
+    user_copy["role"] = role_name
+    return _sanitize_user_picture(user_copy)
 
 
 async def _invalidate_auth_cache_for_users(user_ids: list[str]) -> None:
@@ -54,7 +98,7 @@ async def _invalidate_banned_user_auth_state(user_ids: list[str], reason: str) -
     await asyncio.gather(*(invalidate_one(user_id) for user_id in unique_user_ids))
 
 
-@router.get("/users", response_model=dict[str, Any])
+@router.get("/users", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("60/minute")
 async def list_users(
     request: Request,
@@ -75,50 +119,17 @@ async def list_users(
     if cache_key:
         cached = await redis_service.get(cache_key)
         if cached:
-            return cast(dict[str, Any], cached)
+            cached_result = cast(dict[str, Any], cached)
+            cached_result["data"] = [
+                _sanitize_user_picture(user) for user in cast(list[dict[str, Any]], cached_result.get("data", []))
+            ]
+            return cached_result
     try:
         admin_client = await get_async_supabase_admin_client()
-        query = (
-            admin_client.table("users")
-            .select(
-                "id, email, name, picture, treat_balance, is_pro, created_at, banned_at, roles(name)",
-                count=CountMethod.exact,
-            )
-            .range(pagination.offset, pagination.offset + pagination.limit - 1)
-        )
-
-        allowed_sort_fields = ["created_at", "email", "name", "treat_balance", "role"]
-        db_sort_field = pagination.sort_by
-        if pagination.sort_by not in allowed_sort_fields:
-            db_sort_field = "created_at"
-        elif pagination.sort_by == "role":
-            db_sort_field = "roles(name)"  # Correct syntax for join sorting in some psql versions
-
-        if pagination.sort_by != "role":
-            query = query.order(db_sort_field, desc=(pagination.order == "desc"))
-
-        if search:
-            clean_search = "".join(c for c in search if c.isalnum() or c in (" ", "_", "-", "@", ".")).strip()
-            if clean_search:
-                query = cast(Any, query.or_(f"email.ilike.%{clean_search}%,name.ilike.%{clean_search}%"))
-
-        result = await query.execute()
+        result = await _build_user_list_query(admin_client, pagination, search).execute()
         users_data = cast(list[dict[str, Any]], result.data or [])
         total_count = result.count if result.count is not None else 0
-
-        processed_data = []
-        for user in users_data:
-            user_copy = user.copy()
-            role_info = user_copy.pop("roles", None)
-
-            role_name = "user"
-            if isinstance(role_info, dict):
-                role_name = role_info.get("name", "user")
-            elif isinstance(role_info, list) and len(role_info) > 0:
-                role_name = role_info[0].get("name", "user")
-
-            user_copy["role"] = role_name
-            processed_data.append(user_copy)
+        processed_data = [_normalize_admin_user(user) for user in users_data]
 
         result_data = {"data": processed_data, "total": total_count}
         if cache_key:
@@ -129,7 +140,7 @@ async def list_users(
         raise HTTPException(status_code=500, detail="Failed to fetch users")
 
 
-@router.post("/users/bulk-ban")
+@router.post("/users/bulk-ban", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("5/minute")
 async def bulk_ban_users(
     request: Request,
@@ -208,7 +219,7 @@ async def bulk_ban_users(
         raise HTTPException(status_code=500, detail="Bulk action failed")
 
 
-@router.post("/users/bulk-unban")
+@router.post("/users/bulk-unban", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("5/minute")
 async def bulk_unban_users(
     request: Request,
@@ -242,7 +253,7 @@ async def bulk_unban_users(
         raise HTTPException(status_code=500, detail="Bulk action failed")
 
 
-@router.delete("/users/{user_id}")
+@router.delete("/users/{user_id}", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("10/minute")
 async def delete_user(
     request: Request,
@@ -265,7 +276,7 @@ async def delete_user(
             .execute()
         )
         if not check.data:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail=USER_NOT_FOUND_DETAIL)
 
         user_data = cast(dict[str, Any], check.data[0])
         role_info = user_data.get("roles")
@@ -318,7 +329,7 @@ async def delete_user(
         raise HTTPException(status_code=500, detail="Failed to delete user")
 
 
-@router.patch("/users/{user_id}/profile", response_model=dict[str, Any])
+@router.patch("/users/{user_id}/profile", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("20/minute")
 async def update_user_profile_admin(
     request: Request,
@@ -347,11 +358,11 @@ async def update_user_profile_admin(
 
         result = await admin_client.table("users").update(filtered_data).eq("id", user_id_str).execute()
         if not result.data:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail=USER_NOT_FOUND_DETAIL)
         await invalidate_user_auth_cache(user_id_str)
         await _invalidate_user_list_cache()
 
-        return cast(dict[str, Any], result.data[0])
+        return _sanitize_user_picture(cast(dict[str, Any], result.data[0]))
     except HTTPException:
         raise
     except Exception as e:
@@ -359,7 +370,7 @@ async def update_user_profile_admin(
         raise HTTPException(status_code=500, detail="Failed to update user profile")
 
 
-@router.put("/users/{user_id}/role")
+@router.put("/users/{user_id}/role", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("20/minute")
 async def update_user_role(
     request: Request,
@@ -385,7 +396,7 @@ async def update_user_role(
         role_name = cast(str | None, role_record.get("name"))
         result = await admin_client.table("users").update({"role_id": role_id_str}).eq("id", user_id_str).execute()
         if not result.data:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail=USER_NOT_FOUND_DETAIL)
         await invalidate_user_auth_cache(user_id_str)
         await _invalidate_user_list_cache()
 
@@ -407,7 +418,7 @@ async def update_user_role(
         raise HTTPException(status_code=500, detail="Failed to update role")
 
 
-@router.post("/users/{user_id}/ban")
+@router.post("/users/{user_id}/ban", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("5/minute")
 async def ban_user(
     request: Request,
@@ -432,7 +443,7 @@ async def ban_user(
         )
         user_data = cast(dict[str, Any], supa_res.data)
         if not user_data:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail=USER_NOT_FOUND_DETAIL)
 
         role_name = (user_data.get("roles") or {}).get("name") or "user"
         if role_name.lower() in ("admin", "super_admin"):
@@ -470,7 +481,7 @@ async def ban_user(
         raise HTTPException(status_code=500, detail="Failed to ban user")
 
 
-@router.post("/users/{user_id}/unban")
+@router.post("/users/{user_id}/unban", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("5/minute")
 async def unban_user(
     request: Request,

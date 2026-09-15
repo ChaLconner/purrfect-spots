@@ -3,7 +3,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.config import config
-from app.dependencies import get_current_token, get_treats_service
+from app.dependencies import get_treats_service
 from app.logger import logger
 from app.middleware.auth_middleware import get_current_user_from_credentials
 from app.schemas.treats import (
@@ -20,7 +20,7 @@ from app.services.treats_service import TreatsService
 router = APIRouter(prefix="/treats", tags=["Treats"])
 
 
-@router.get("/balance", response_model=TreatBalanceResponse)
+@router.get("/balance")
 async def get_balance(
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
@@ -30,16 +30,18 @@ async def get_balance(
     return TreatBalanceResponse(**result)
 
 
-@router.post("/give", response_model=GiveTreatResponse)
+@router.post(
+    "/give",
+    responses={400: {"description": "Invalid treat request"}, 500: {"description": "Internal Server Error"}},
+)
 async def give_treat(
     req: GiveTreatRequest,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
-    token: Annotated[str, Depends(get_current_token)],
 ) -> GiveTreatResponse:
     """Give treats to a photo owner."""
     try:
-        result = await treats_service.give_treat(current_user.id, req.photo_id, req.amount, jwt_token=token)
+        result = await treats_service.give_treat(current_user.id, req.photo_id, req.amount)
         return GiveTreatResponse(**result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -48,7 +50,10 @@ async def give_treat(
         raise HTTPException(status_code=500, detail="Internal error")
 
 
-@router.post("/purchase/checkout", response_model=CheckoutUrlResponse)
+@router.post(
+    "/purchase/checkout",
+    responses={400: {"description": "Invalid package"}, 500: {"description": "Internal Server Error"}},
+)
 async def purchase_treats_checkout(
     req: PurchaseTreatsRequest,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
@@ -78,7 +83,7 @@ async def purchase_treats_checkout(
         raise HTTPException(status_code=500, detail="Failed to initiate purchase")
 
 
-@router.get("/packages", response_model=dict[str, Any])
+@router.get("/packages")
 async def get_treat_packages(
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
 ) -> dict[str, Any]:
@@ -86,12 +91,12 @@ async def get_treat_packages(
     return await treats_service.get_packages()
 
 
-@router.get("/leaderboard", response_model=list[LeaderboardEntry])
+@router.get("/leaderboard", responses={400: {"description": "Invalid period"}})
 async def get_leaderboard(
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
-    period: str = "all_time",
-    limit: int = Query(50, ge=1, le=100, description="Number of items to return"),
-    offset: int = Query(0, ge=0, description="Number of items to skip"),
+    period: Annotated[str, Query()] = "all_time",
+    limit: Annotated[int, Query(ge=1, le=100, description="Number of items to return")] = 50,
+    offset: Annotated[int, Query(ge=0, description="Number of items to skip")] = 0,
 ) -> list[LeaderboardEntry]:
     """Get top treat receivers with pagination."""
     if period not in ["weekly", "monthly", "all_time"]:

@@ -1,3 +1,4 @@
+import asyncio
 import os
 from typing import Any, cast
 
@@ -15,12 +16,15 @@ class _FallbackAsyncMemoryStorage:
         self.storage: dict[str, str] = {}
 
     async def get_item(self, key: str) -> str | None:
+        await asyncio.sleep(0)
         return self.storage.get(key)
 
     async def set_item(self, key: str, value: str) -> None:
+        await asyncio.sleep(0)
         self.storage[key] = value
 
     async def remove_item(self, key: str) -> None:
+        await asyncio.sleep(0)
         self.storage.pop(key, None)
 
 
@@ -98,17 +102,19 @@ def _create_options(is_async: bool) -> Any:
     kwargs: dict[str, Any] = {
         "postgrest_client_timeout": 30.0,
         "storage_client_timeout": 30.0,
+        "persist_session": False,
+        "auto_refresh_token": False,
     }
     if is_async:
-        OptionsClass = getattr(_client_options_mod, "AsyncClientOptions", ClientOptions)
+        options_class = getattr(_client_options_mod, "AsyncClientOptions", ClientOptions)
     else:
-        OptionsClass = getattr(_client_options_mod, "SyncClientOptions", ClientOptions)
+        options_class = getattr(_client_options_mod, "SyncClientOptions", ClientOptions)
 
-    sig = inspect.signature(OptionsClass)
+    sig = inspect.signature(options_class)
     if is_async and "storage" in sig.parameters:
         kwargs["storage"] = cast(Any, create_async_memory_storage())
 
-    return OptionsClass(**kwargs)
+    return options_class(**kwargs)
 
 
 client_options = _create_options(is_async=False)
@@ -156,8 +162,6 @@ def get_supabase_admin_client() -> Client:
 
 
 # --- Async Clients ---
-
-import asyncio
 
 _async_supabase: AClient | None = None
 _async_supabase_admin: AClient | None = None
@@ -235,3 +239,17 @@ async def get_admin_client_or_fallback(supabase_admin: AClient | None = None) ->
     if supabase_admin is not None:
         return supabase_admin
     return await get_async_supabase_admin_client()
+
+
+async def sign_in_with_password_isolated(email: str, password: str) -> Any:
+    """Authenticate without mutating a process-wide Supabase client's headers."""
+    from supabase._async.auth_client import AsyncSupabaseAuthClient
+
+    key = _resolve_supabase_anon_key()
+    async with AsyncSupabaseAuthClient(
+        url=f"{_resolve_supabase_url().rstrip('/')}/auth/v1",
+        headers={"apikey": key, "Authorization": f"Bearer {key}"},
+        persist_session=False,
+        auto_refresh_token=False,
+    ) as auth:
+        return await auth.sign_in_with_password({"email": email, "password": password})

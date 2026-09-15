@@ -1,6 +1,5 @@
 import hashlib
 import hmac
-import threading
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -8,13 +7,11 @@ from typing import Any
 import jwt
 
 from app.config import config
+from app.services.redis_service import redis_service
 
 TOKEN_ALGORITHM = "HS256"
 TOKEN_PURPOSE = "cat-upload-verification"
 TOKEN_TTL = timedelta(minutes=5)
-
-_spent_tokens_lock = threading.Lock()
-_spent_tokens: set[str] = set()
 
 
 def _content_digest(content: bytes) -> str:
@@ -41,7 +38,7 @@ def create_upload_verification_token(content: bytes, user_id: str, detection: di
     return jwt.encode(payload, config.JWT_SECRET, algorithm=TOKEN_ALGORITHM)
 
 
-def verify_upload_verification_token(
+async def verify_upload_verification_token(
     token: str, content: bytes, user_id: str, burn: bool = True
 ) -> dict[str, Any] | None:
     try:
@@ -50,7 +47,7 @@ def verify_upload_verification_token(
             config.JWT_SECRET,
             algorithms=[TOKEN_ALGORITHM],
             leeway=10,
-            options={"require": ["exp", "iat", "sub", "purpose", "sha256", "cat_detection"]},
+            options={"require": ["exp", "iat", "sub", "jti", "purpose", "sha256", "cat_detection"]},
         )
     except jwt.PyJWTError:
         return None
@@ -61,15 +58,17 @@ def verify_upload_verification_token(
         return None
 
     jti = payload.get("jti")
-    with _spent_tokens_lock:
-        if jti and jti in _spent_tokens:
-            return None
+    if not isinstance(jti, str) or not jti:
+        return None
 
-        detection = payload.get("cat_detection")
-        if not isinstance(detection, dict) or detection.get("has_cats") is not True:
-            return None
+    detection = payload.get("cat_detection")
+    if not isinstance(detection, dict) or detection.get("has_cats") is not True:
+        return None
 
-        if burn and jti:
-            _spent_tokens.add(jti)
+    if burn and not await redis_service.consume_once(
+        f"upload-verification:{jti}",
+        int(TOKEN_TTL.total_seconds()),
+    ):
+        return None
 
     return detection

@@ -19,8 +19,9 @@
           class="bg-white/80 backdrop-blur-sm rounded-full p-1 shadow-sm border border-stone-200 inline-flex"
         >
           <button
-            v-for="p in periods"
+v-for="p in periods"
             :key="p.value"
+            type="button"
             role="tab"
             :aria-selected="period === p.value"
             :class="[
@@ -112,6 +113,7 @@ import { useSeo } from '@/composables/useSeo';
 import LeaderboardItem, {
   type LeaderboardUser,
 } from '@/components/leaderboard/LeaderboardItem.vue';
+import { sanitizeAvatarUrl } from '@/utils/avatar';
 import ProfileDrawer from '@/components/profile/ProfileDrawer.vue';
 import { showError } from '@/stores/toast';
 
@@ -168,7 +170,7 @@ const normalizeLeaderboardUsers = (data: unknown): LeaderboardUser[] => {
       id: String(rawId || `user-${index}`),
       name: String(rawName || 'Anonymous Spotter'),
       username: item.username ? String(item.username) : undefined,
-      picture: rawPicture ? String(rawPicture) : undefined,
+      picture: rawPicture ? sanitizeAvatarUrl(String(rawPicture)) || undefined : undefined,
       total_treats_received: Number(treatsReceived),
     };
   });

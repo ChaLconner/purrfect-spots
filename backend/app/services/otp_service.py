@@ -4,14 +4,16 @@ Generates, stores, and verifies 6-digit OTP codes
 """
 
 import hashlib
+import hmac
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from sqlalchemy import bindparam, column, desc, select, table, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
+from app.config import config
 from app.logger import logger
 from app.services.redis_service import redis_service
 from app.utils.datetime_utils import utc_now
@@ -57,12 +59,21 @@ class OTPService:
         return str(secrets.randbelow(1000000)).zfill(6)
 
     def _hash_otp(self, otp: str) -> str:
-        """Hash OTP using SHA-256 for secure storage"""
-        return hashlib.sha256(otp.encode()).hexdigest()
+        """Key OTP hashes so a database-only leak cannot be brute-forced offline."""
+        return hmac.new(
+            config.JWT_SECRET.encode(),
+            f"email-verification:{otp}".encode(),
+            hashlib.sha256,
+        ).hexdigest()
 
     def _constant_time_compare(self, val1: str, val2: str) -> bool:
         """Constant-time comparison to prevent timing attacks"""
         return secrets.compare_digest(val1, val2)
+
+    @staticmethod
+    def _as_datetime(value: str | datetime) -> datetime:
+        parsed = datetime.fromisoformat(value.replace("Z", TIMEZONE_UTC_OFFSET)) if isinstance(value, str) else value
+        return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed
 
     async def _run_redis_otp_op(self, action: str, email: str, val: Any = None) -> tuple[bool, Any]:
         """Helper to run Redis operations for OTP lockout."""
@@ -90,19 +101,18 @@ class OTPService:
         """
         try:
             handled, res = await self._run_redis_otp_op("exists", email)
-            if handled:
-                return bool(res)
+            if handled and res:
+                return True
 
             # Fallback to database check
             rec = await self._fetch_pending_verification(email, "locked_until")
             if rec and rec.get("locked_until"):
-                locked_until = datetime.fromisoformat(cast(str, rec["locked_until"]).replace("Z", TIMEZONE_UTC_OFFSET))
+                locked_until = self._as_datetime(rec["locked_until"])
                 return utc_now() < locked_until
 
             return False
         except Exception:
-            # On error, allow attempt (fail open for lockout check)
-            return False
+            return True
 
     async def _fetch_pending_verification(self, email: str, columns: str) -> dict[str, Any] | None:
         """Fetch latest unverified email verification record by email."""
@@ -148,7 +158,6 @@ class OTPService:
             handled, _ = await self._run_redis_otp_op("setex", email, locked_until.isoformat())
             if handled:
                 logger.info("Email locked out in Redis: %s until %s", email, locked_until.isoformat())
-                return
 
             # Fallback to database
             await self._update_email_lockout_db(email, locked_until)
@@ -196,6 +205,8 @@ class OTPService:
         Create and store OTP for email verification (Async)
         """
         try:
+            if await self._is_email_locked_out(email.lower()):
+                raise ValueError("Too many failed verification attempts. Please try again later.")
             # Invalidate any existing OTPs for this email
             await self.invalidate_existing_otps(email)
 
@@ -266,8 +277,8 @@ class OTPService:
             expires_at = record["expires_at"]
 
             # Check if expired
-            expiry_time = datetime.fromisoformat(expires_at.replace("Z", TIMEZONE_UTC_OFFSET))
-            if utc_now() > expiry_time:
+            expiry_time = self._as_datetime(expires_at)
+            if utc_now() >= expiry_time:
                 logger.warning("OTP expired")
                 return {
                     "success": False,
@@ -289,36 +300,27 @@ class OTPService:
             # Verify OTP using constant-time comparison
             input_hash = self._hash_otp(otp)
             if self._constant_time_compare(input_hash, stored_hash):
-                # Success - mark as verified and clear any lockout
+                if not await self._claim_attempt(record_id, attempts, verified=True):
+                    return {
+                        "success": False,
+                        "error": "Verification code already used or changed. Please try again.",
+                        "attempts_remaining": 0,
+                    }
                 await self._clear_email_lockout(email_lower)
-                if self.db:
-                    query = text("UPDATE email_verifications SET verified_at = :now WHERE id = :id")
-                    await self.db.execute(query, {"now": utc_now().isoformat(), "id": record_id})
-                    await self.db.commit()
-                else:
-                    await (
-                        self.supabase.table("email_verifications")
-                        .update({"verified_at": utc_now().isoformat()})
-                        .eq("id", record_id)
-                        .execute()
-                    )
 
                 logger.info("OTP verified successfully")
                 return {"success": True}
 
             # Failed - increment attempts
             new_attempts = attempts + 1
-            if self.db:
-                query = text("UPDATE email_verifications SET attempts = :attempts WHERE id = :id")
-                await self.db.execute(query, {"attempts": new_attempts, "id": record_id})
-                await self.db.commit()
-            else:
-                await (
-                    self.supabase.table("email_verifications")
-                    .update({"attempts": new_attempts})
-                    .eq("id", record_id)
-                    .execute()
-                )
+            if not await self._claim_attempt(record_id, attempts, verified=False):
+                return {
+                    "success": False,
+                    "error": "Concurrent verification attempt. Please try again.",
+                    "attempts_remaining": 0,
+                }
+            if new_attempts >= max_attempts:
+                await self._lockout_email(email_lower)
 
             remaining = max_attempts - new_attempts
             logger.warning("Invalid OTP, %s attempts remaining", remaining)
@@ -331,6 +333,40 @@ class OTPService:
         except Exception as e:
             logger.error("OTP verification error: %s", e)
             return {"success": False, "error": "Verification failed. Please try again.", "attempts_remaining": 0}
+
+    async def _claim_attempt(self, record_id: str, attempts: int, *, verified: bool) -> bool:
+        """Compare-and-swap prevents lost attempts and concurrent OTP reuse."""
+        now = utc_now()
+        values: dict[str, str | int] = {"verified_at": now.isoformat()} if verified else {"attempts": attempts + 1}
+        if self.db:
+            query = (
+                "UPDATE email_verifications SET verified_at = :now "
+                "WHERE id = :id AND attempts = :attempts AND verified_at IS NULL "
+                "AND expires_at > :now AND attempts < max_attempts "
+                "AND (locked_until IS NULL OR locked_until <= :now) RETURNING id"
+                if verified
+                else "UPDATE email_verifications SET attempts = attempts + 1 "
+                "WHERE id = :id AND attempts = :attempts AND verified_at IS NULL "
+                "AND expires_at > :now AND attempts < max_attempts "
+                "AND (locked_until IS NULL OR locked_until <= :now) RETURNING id"
+            )
+            sql_result = await self.db.execute(
+                text(query),
+                {"id": record_id, "attempts": attempts, "now": now},
+            )
+            claimed = sql_result.fetchone() is not None
+            await self.db.commit()
+            return claimed
+        api_response = await (
+            self.supabase.table("email_verifications")
+            .update(values)
+            .eq("id", record_id)
+            .eq("attempts", attempts)
+            .is_("verified_at", "null")
+            .gt("expires_at", now.isoformat())
+            .execute()
+        )
+        return bool(api_response.data)
 
     async def invalidate_existing_otps(self, email: str) -> None:
         """Invalidate all existing OTPs for an email (Async)"""
@@ -349,6 +385,7 @@ class OTPService:
                 )
         except Exception:
             logger.warning("Failed to invalidate existing OTPs")
+            raise
 
     async def can_resend_otp(self, email: str) -> tuple[bool, int]:
         """
@@ -382,7 +419,7 @@ class OTPService:
             if not row_created_at:
                 return True, 0
 
-            created_at = datetime.fromisoformat(row_created_at.replace("Z", TIMEZONE_UTC_OFFSET))
+            created_at = self._as_datetime(row_created_at)
             elapsed = (utc_now() - created_at).total_seconds()
 
             if elapsed < self.RESEND_COOLDOWN_SECONDS:
@@ -393,4 +430,4 @@ class OTPService:
 
         except Exception:
             logger.warning("Resend check error")
-            return True, 0  # Allow resend on error
+            return False, self.RESEND_COOLDOWN_SECONDS

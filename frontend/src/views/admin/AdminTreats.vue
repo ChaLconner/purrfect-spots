@@ -6,6 +6,7 @@
     >
       <template #actions>
         <button
+type="button"
           class="px-4 py-2 bg-terracotta-600 text-white rounded-lg font-medium hover:bg-terracotta-700 transition-colors shadow-sm flex items-center gap-2"
           @click="openGrantModal"
         >
@@ -77,7 +78,11 @@
         <div class="flex items-center gap-3">
           <!-- Filter by type -->
           <div class="relative">
+            <label for="admin-treats-type-filter" class="sr-only">
+              {{ t('admin.treats.filter_all_types') }}
+            </label>
             <select
+              id="admin-treats-type-filter"
               v-model="filterType"
               class="text-sm border border-sand-300 rounded-lg px-4 py-2 bg-white text-brown-700 focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 outline-none transition-colors appearance-none pr-10 min-w-[180px] font-medium"
               @change="onFilterChange"
@@ -210,7 +215,7 @@
           <h3 class="text-lg font-bold text-brown-900">
             {{ t('admin.treats.grant_treats') }}
           </h3>
-          <button class="p-2 hover:bg-sand-50 rounded-full transition-colors text-brown-400 hover:text-brown-600" @click="closeGrantModal">
+          <button type="button" class="p-2 hover:bg-sand-50 rounded-full transition-colors text-brown-400 hover:text-brown-600" @click="closeGrantModal">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -220,7 +225,7 @@
         <form class="space-y-4" @submit.prevent="submitGrant">
           <!-- User search -->
           <div class="relative">
-            <label class="block text-sm font-medium text-brown-700 mb-1">{{
+            <label for="admin-treats-user-search" class="block text-sm font-medium text-brown-700 mb-1">{{
               t('admin.treats.user_search_label')
             }}</label>
             <div class="relative group">
@@ -230,6 +235,7 @@
                 </svg>
               </div>
               <input
+                id="admin-treats-user-search"
                 v-model="userSearchQuery"
                 type="text"
                 :placeholder="t('admin.treats.user_search_placeholder')"
@@ -306,10 +312,11 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-brown-700 mb-1">{{
+            <label for="admin-treats-amount" class="block text-sm font-medium text-brown-700 mb-1">{{
               t('admin.treats.amount')
             }}</label>
             <input
+              id="admin-treats-amount"
               v-model.number="grantForm.amount"
               type="number"
               required
@@ -319,10 +326,11 @@
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-brown-700 mb-1">{{
+            <label for="admin-treats-reason" class="block text-sm font-medium text-brown-700 mb-1">{{
               t('admin.treats.reason')
             }}</label>
             <textarea
+              id="admin-treats-reason"
               v-model="grantForm.reason"
               required
               rows="3"

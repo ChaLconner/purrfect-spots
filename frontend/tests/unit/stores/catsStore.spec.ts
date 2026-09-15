@@ -230,31 +230,17 @@ describe('Cats Store', () => {
       expect(store.filteredLocations[0].id).toBe('1');
     });
 
-    it('should filter by description', () => {
+    it.each([
+      ['description', 'tabby', '1'],
+      ['tag', 'sleepy', '2'],
+      ['hashtag with # prefix', '#cute', '1'],
+    ])('should filter by %s', (_filterType, query, expectedId) => {
       const store = useCatsStore();
       store.setLocations(mockLocations);
-      store.setSearchQuery('tabby');
+      store.setSearchQuery(query);
 
       expect(store.filteredLocations).toHaveLength(1);
-      expect(store.filteredLocations[0].id).toBe('1');
-    });
-
-    it('should filter by tag', () => {
-      const store = useCatsStore();
-      store.setLocations(mockLocations);
-      store.setSearchQuery('sleepy');
-
-      expect(store.filteredLocations).toHaveLength(1);
-      expect(store.filteredLocations[0].id).toBe('2');
-    });
-
-    it('should filter by hashtag with # prefix even if description has it', () => {
-      const store = useCatsStore();
-      store.setLocations(mockLocations);
-      store.setSearchQuery('#cute');
-
-      expect(store.filteredLocations).toHaveLength(1);
-      expect(store.filteredLocations[0].id).toBe('1');
+      expect(store.filteredLocations[0].id).toBe(expectedId);
     });
 
     it('should handle search queries with weird characters', () => {
@@ -520,7 +506,10 @@ describe('Cats Store', () => {
       
       store.locations = [{ id: 'error' } as any];
       await vi.advanceTimersByTimeAsync(2000);
-      // Should not throw (handled in store)
+      expect(localStorage.setItem).toHaveBeenCalledWith(
+        'cats_store_cache',
+        expect.any(String),
+      );
     });
   });
 

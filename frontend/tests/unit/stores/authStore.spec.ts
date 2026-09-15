@@ -224,7 +224,7 @@ describe('Auth Store', () => {
     expect(mockApiPost).toHaveBeenCalledTimes(1);
   });
 
-  it('refreshToken handles errors with justLoggedIn check', async () => {
+  it('refreshToken rejects a failed session check even immediately after login', async () => {
     vi.useFakeTimers();
     const now = Date.now();
     vi.setSystemTime(now);
@@ -237,7 +237,7 @@ describe('Auth Store', () => {
     // Within 5 seconds
     const res = await store.refreshToken();
     expect(res).toBe(false);
-    expect(store.isAuthenticated).toBe(true);
+    expect(store.isAuthenticated).toBe(false);
     
     // After 6 seconds
     vi.setSystemTime(now + 6000);
@@ -281,13 +281,13 @@ describe('Auth Store', () => {
 
   it('getters return expected values', () => {
     const store = useAuthStore();
-    store.user = { id: '1', email: 'test@example.com', name: 'John', picture: 'pic.jpg' } as any;
+    store.user = { id: '1', email: 'test@example.com', name: 'John', picture: '/uploads/pic.jpg' } as any;
     store.isAuthenticated = true;
 
     expect(store.hasCompleteProfile).toBe(true);
     expect(store.isUserReady).toBe(true);
     expect(store.userDisplayName).toBe('John');
-    expect(store.userAvatar).toBe('pic.jpg');
+    expect(store.userAvatar).toBe('/uploads/pic.jpg');
 
     store.user!.name = '';
     expect(store.userDisplayName).toBe('test@example.com');
@@ -338,6 +338,51 @@ describe('Auth Store', () => {
     expect(store.hasPermission('reports:read')).toBe(true);
     expect(store.canAccessAdmin).toBe(true);
     expect(store.isAdmin).toBe(false);
+  });
+
+  it('does not restore a session from a refresh completed after logout', async () => {
+    let finish!: (value: any) => void;
+    mockApiPost.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const store = useAuthStore();
+    const refreshing = store.refreshToken();
+    store.clearAuth();
+    finish({ access_token: 'stale-token', user: { id: 'old', email: 'old@example.com' } });
+    expect(await refreshing).toBe(false);
+    expect(store.token).toBeNull();
+    expect(store.user).toBeNull();
+    expect(mockSetAccessToken).not.toHaveBeenCalledWith('stale-token');
+  });
+
+  it('does not replace a newer login with an older refresh response', async () => {
+    let finish!: (value: any) => void;
+    mockApiPost.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const store = useAuthStore();
+    const refreshing = store.refreshToken();
+    await store.setAuth({ access_token: 'new-token', user: { id: 'new', email: 'new@example.com', name: 'New' } } as any);
+    finish({ access_token: 'old-token', user: { id: 'old', email: 'old@example.com' } });
+    expect(await refreshing).toBe(true);
+    expect(store.token).toBe('new-token');
+    expect(store.user?.id).toBe('new');
+  });
+
+  it('keeps authentication and logout functional when localStorage throws', async () => {
+    vi.mocked(localStorage.setItem).mockImplementation(() => { throw new Error('Storage disabled'); });
+    vi.mocked(localStorage.removeItem).mockImplementation(() => { throw new Error('Storage disabled'); });
+    const store = useAuthStore();
+    await store.setAuth({ access_token: 'new-token', user: { id: 'new', email: 'new@example.com', name: 'New' } } as any);
+    expect(store.isAuthenticated).toBe(true);
+    expect(mockSetAccessToken).toHaveBeenLastCalledWith('new-token');
+    store.clearAuth();
+    expect(store.isAuthenticated).toBe(false);
+    expect(mockSetAccessToken).toHaveBeenLastCalledWith(null);
+  });
+
+  it('does not grant permissions from a cached profile', () => {
+    localStorage.setItem('user_data', JSON.stringify({ id: '1', email: 'cached@example.com', role: 'super_admin', permissions: [PERMISSIONS.SYSTEM_SETTINGS] }));
+    const store = useAuthStore();
+    expect(store.isAdmin).toBe(false);
+    expect(store.canAccessAdmin).toBe(false);
+    expect(store.hasPermission(PERMISSIONS.SYSTEM_SETTINGS)).toBe(false);
   });
 
   it('normalizes legacy permission aliases from backend responses', async () => {

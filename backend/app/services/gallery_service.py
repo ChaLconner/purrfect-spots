@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
@@ -9,9 +7,6 @@ from app.services.gallery.read_mixin import GalleryReadMixin
 from app.services.gallery.search_mixin import GallerySearchMixin
 from app.services.gallery.write_mixin import GalleryWriteMixin
 from app.services.search_service import SearchService
-
-if TYPE_CHECKING:
-    pass
 
 logger = structlog.get_logger(__name__)
 

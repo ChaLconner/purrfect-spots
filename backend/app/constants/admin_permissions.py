@@ -25,6 +25,9 @@ ROLES_MANAGE = "roles:manage"
 
 ACCESS_ADMIN = "access:admin"
 
+USER_MANAGEMENT_GROUP = "User Management"
+CONTENT_MANAGEMENT_GROUP = "Content Management"
+
 ADMIN_ROLE_NAMES = frozenset({"admin", "super_admin"})
 LEGACY_ROLE_ALIASES: dict[str, str] = {
     "superadmin": "super_admin",
@@ -39,13 +42,13 @@ class PermissionDefinition:
 
 
 PERMISSION_DEFINITIONS: tuple[PermissionDefinition, ...] = (
-    PermissionDefinition(USERS_READ, "User Management", "View user list and details"),
-    PermissionDefinition(USERS_WRITE, "User Management", "Edit user profile details"),
-    PermissionDefinition(USERS_UPDATE, "User Management", "Update user roles and moderation state"),
-    PermissionDefinition(USERS_DELETE, "User Management", "Delete or anonymize user accounts"),
-    PermissionDefinition(CONTENT_READ, "Content Management", "View all uploaded content"),
-    PermissionDefinition(CONTENT_WRITE, "Content Management", "Edit uploaded content metadata"),
-    PermissionDefinition(CONTENT_DELETE, "Content Management", "Delete uploaded content"),
+    PermissionDefinition(USERS_READ, USER_MANAGEMENT_GROUP, "View user list and details"),
+    PermissionDefinition(USERS_WRITE, USER_MANAGEMENT_GROUP, "Edit user profile details"),
+    PermissionDefinition(USERS_UPDATE, USER_MANAGEMENT_GROUP, "Update user roles and moderation state"),
+    PermissionDefinition(USERS_DELETE, USER_MANAGEMENT_GROUP, "Delete or anonymize user accounts"),
+    PermissionDefinition(CONTENT_READ, CONTENT_MANAGEMENT_GROUP, "View all uploaded content"),
+    PermissionDefinition(CONTENT_WRITE, CONTENT_MANAGEMENT_GROUP, "Edit uploaded content metadata"),
+    PermissionDefinition(CONTENT_DELETE, CONTENT_MANAGEMENT_GROUP, "Delete uploaded content"),
     PermissionDefinition(REPORTS_READ, "Moderation", "View user reports"),
     PermissionDefinition(REPORTS_UPDATE, "Moderation", "Resolve or dismiss reports"),
     PermissionDefinition(SYSTEM_STATS, "System", "View dashboard and security statistics"),

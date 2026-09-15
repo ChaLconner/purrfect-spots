@@ -10,10 +10,23 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { User, LoginResponse } from '../types/auth';
 import { canAccessAdminShell, hasAdminBypass } from '../utils/adminAccess';
 import { normalizePermissions } from '../utils/permissionNormalization';
+import { sanitizeAvatarUrl } from '../utils/avatar';
 
 import { apiV1, setAccessToken, setAuthCallbacks } from '../utils/api';
 import { ProfileService } from '../services/profileService';
 import type { supabase as supabaseInstance } from '../lib/supabase';
+
+function cacheProfile(userData: User | null): void {
+  try {
+    if (userData) localStorage.setItem('user_data', JSON.stringify(sanitizeUserForCache(userData)));
+    else {
+      localStorage.removeItem('user_data');
+      localStorage.removeItem('user');
+    }
+  } catch {
+    // Storage is optional; browser privacy settings must not break session state.
+  }
+}
 
 // Module-level helper to update API header - avoids recreation on every store access
 function updateApiHeader(accessToken: string | null): void {
@@ -21,8 +34,10 @@ function updateApiHeader(accessToken: string | null): void {
     setAccessToken(accessToken);
   } else {
     setAccessToken(null);
-    localStorage.removeItem('auth_token'); // Clean up legacy
-    localStorage.removeItem('access_token'); // Clean up legacy
+    try {
+      localStorage.removeItem('auth_token'); // Clean up legacy
+      localStorage.removeItem('access_token'); // Clean up legacy
+    } catch { /* Storage may be disabled. */ }
   }
 }
 
@@ -81,9 +96,7 @@ type SupabaseClient = typeof supabaseInstance;
 let supabaseClientPromise: Promise<SupabaseClient> | null = null;
 
 async function getSupabaseClient(): Promise<SupabaseClient> {
-  if (!supabaseClientPromise) {
-    supabaseClientPromise = import('../lib/supabase').then(({ supabase }) => supabase);
-  }
+  supabaseClientPromise ??= import('../lib/supabase').then(({ supabase }) => supabase);
 
   return supabaseClientPromise;
 }
@@ -110,6 +123,7 @@ export const useAuthStore = defineStore('auth', () => {
   // Singleton promise to avoid parallel refresh calls
   let refreshPromise: Promise<boolean> | null = null;
   let initializePromise: Promise<void> | null = null;
+  let sessionVersion = 0;
 
   // ========== Getters ==========
   const hasCompleteProfile = computed(() => {
@@ -125,19 +139,19 @@ export const useAuthStore = defineStore('auth', () => {
   });
 
   const userAvatar = computed(() => {
-    return user.value?.picture || '/default-avatar.svg';
+    return sanitizeAvatarUrl(user.value?.picture) || '/default-avatar.svg';
   });
 
   const isAdmin = computed(() => {
-    return hasAdminBypass(user.value);
+    return isAuthenticated.value && hasAdminBypass(user.value);
   });
 
   const canAccessAdmin = computed(() => {
-    return canAccessAdminShell(user.value);
+    return isAuthenticated.value && canAccessAdminShell(user.value);
   });
 
   function hasPermission(permission: string): boolean {
-    return user.value?.permissions?.includes(permission) || false;
+    return isAuthenticated.value && (user.value?.permissions?.includes(permission) || false);
   }
 
   // ========== Actions ==========
@@ -183,6 +197,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function refreshToken(): Promise<boolean> {
     if (refreshPromise) return refreshPromise;
+    const requestVersion = sessionVersion;
 
     refreshPromise = (async (): Promise<boolean> => {
       try {
@@ -192,33 +207,25 @@ export const useAuthStore = defineStore('auth', () => {
           user?: User;
         }>('/auth/refresh-token');
 
+        if (requestVersion !== sessionVersion) return isAuthenticated.value;
+
         if (response.access_token) {
           token.value = response.access_token;
           isAuthenticated.value = true;
           if (response.user) {
             const normalizedUser = normalizeUserData(response.user);
             user.value = normalizedUser;
-            localStorage.setItem('user_data', JSON.stringify(sanitizeUserForCache(normalizedUser)));
+            cacheProfile(normalizedUser);
           }
           updateApiHeader(response.access_token);
           return true;
         }
 
-        const justLoggedIn = Date.now() - lastLoginTime.value < 5000;
-        if (isAuthenticated.value && !justLoggedIn) {
-          clearAuth();
-        }
+        clearAuth();
         return false;
       } catch {
-        // RACE CONDITION FIx:
-        // If we just logged in (within last 5 seconds), ignore this background check failure.
-        // This prevents initializeAuth() from wiping a session established by AuthCallback
-        // while the refresh check was in flight.
-        const justLoggedIn = Date.now() - lastLoginTime.value < 5000;
-
-        if (isAuthenticated.value && !justLoggedIn) {
-          clearAuth();
-        }
+        if (requestVersion !== sessionVersion) return isAuthenticated.value;
+        clearAuth();
 
         return false;
       } finally {
@@ -236,6 +243,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (!data.access_token) {
       throw new Error('Authentication response missing access token');
     }
+    sessionVersion++;
     user.value = normalizeUserData(data.user);
     token.value = data.access_token;
     isAuthenticated.value = true;
@@ -243,7 +251,7 @@ export const useAuthStore = defineStore('auth', () => {
     lastLoginTime.value = Date.now();
 
     // Persist safe user data for UX
-    localStorage.setItem('user_data', JSON.stringify(sanitizeUserForCache(data.user)));
+    cacheProfile(data.user);
 
     // Update headers/storage
     updateApiHeader(data.access_token);
@@ -253,13 +261,13 @@ export const useAuthStore = defineStore('auth', () => {
    * Clear all authentication data
    */
   function clearAuth(): void {
+    sessionVersion++;
     user.value = null;
     token.value = null;
     isAuthenticated.value = false;
     error.value = null;
 
-    localStorage.removeItem('user_data');
-    localStorage.removeItem('user');
+    cacheProfile(null);
     updateApiHeader(null);
 
     // Cleanup realtime
@@ -298,7 +306,7 @@ export const useAuthStore = defineStore('auth', () => {
   function updateUser(updates: Partial<User>): void {
     if (user.value) {
       user.value = normalizeUserData({ ...user.value, ...updates });
-      localStorage.setItem('user_data', JSON.stringify(sanitizeUserForCache(user.value)));
+      cacheProfile(user.value);
     }
   }
 
@@ -313,12 +321,11 @@ export const useAuthStore = defineStore('auth', () => {
    * Logout and redirect to login page
    */
   async function logout(): Promise<void> {
+    clearAuth();
     try {
       await apiV1.post('/auth/logout');
     } catch {
       // Logout failure silently handled
-    } finally {
-      clearAuth();
     }
   }
 
@@ -327,10 +334,11 @@ export const useAuthStore = defineStore('auth', () => {
     if (!userId) return;
 
     const supabase = await getSupabaseClient();
+    if (user.value?.id !== userId || !isAuthenticated.value) return;
 
     // Check if we already have a channel for this user and it's active
     const channelName = `user_balance_${userId}`;
-    if (balanceChannel && balanceChannel.topic === `realtime:${channelName}`) {
+    if (balanceChannel?.topic === `realtime:${channelName}`) {
       // Already subscribed to the correct channel
       return;
     }
@@ -359,7 +367,7 @@ export const useAuthStore = defineStore('auth', () => {
           filter: `id=eq.${userId}`,
         },
         (payload: { new: { treat_balance: number } }): void => {
-          if (payload.new && typeof payload.new.treat_balance === 'number' && user.value) {
+          if (payload.new && typeof payload.new.treat_balance === 'number' && user.value?.id === userId) {
             updateUser({ treat_balance: payload.new.treat_balance });
           }
         }

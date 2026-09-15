@@ -22,6 +22,61 @@ def clear_detection_cache() -> None:
     _detection_cache.clear()
 
 
+async def _read_detection_bytes(file: UploadFile | bytes) -> bytes | None:
+    if isinstance(file, (bytes, bytearray)):
+        return bytes(file)
+    try:
+        content_bytes = await file.read()
+        await file.seek(0)
+        return bytes(content_bytes) if isinstance(content_bytes, (bytes, bytearray)) else None
+    except Exception:
+        return None
+
+
+def _get_cached_detection(image_hash: str | None) -> dict[str, Any] | None:
+    if not image_hash:
+        return None
+    cached_entry = _detection_cache.get(image_hash)
+    if not cached_entry:
+        return None
+    expires_at, cached_result = cached_entry
+    if expires_at > time.monotonic():
+        _detection_cache.move_to_end(image_hash)
+        logger.info("Cat detection cache hit for SHA256 hash")
+        return cached_result
+    _detection_cache.pop(image_hash, None)
+    return None
+
+
+def _format_detected_cats(vision_result: dict[str, Any]) -> list[dict[str, str]]:
+    objects = vision_result.get("cat_objects")
+    labels = vision_result.get("cat_labels")
+    if objects:
+        entries = objects
+        key = "name"
+    else:
+        entries = labels or []
+        key = "description"
+    return [
+        {
+            "description": f"Detected {item.get(key, 'cat')}",
+            "breed_guess": "Domestic cat",
+            "position": "Center of image",
+            "size": "Medium",
+        }
+        for item in entries
+    ]
+
+
+def _cache_detection_result(image_hash: str | None, result: dict[str, Any]) -> None:
+    if not image_hash or not result.get("service_available"):
+        return
+    _detection_cache[image_hash] = (time.monotonic() + _DETECTION_CACHE_TTL_SECONDS, result)
+    _detection_cache.move_to_end(image_hash)
+    while len(_detection_cache) > _DETECTION_CACHE_MAX_SIZE:
+        _detection_cache.popitem(last=False)
+
+
 class CatDetectionService:
     """Service for cat detection and spot analysis using Google Cloud Vision API"""
 
@@ -71,56 +126,17 @@ class CatDetectionService:
             # Only cryptographic content hashes may reuse an authorization result.
             # Perceptual hashes are intentionally not used: different images can
             # collide, and upload admission trusts a positive detection result.
-            content_bytes: bytes | None = None
-            if isinstance(file, (bytes, bytearray)):
-                content_bytes = bytes(file)
-            elif isinstance(file, UploadFile):
-                try:
-                    content_bytes = await file.read()
-                    await file.seek(0)
-                except Exception:
-                    content_bytes = None
-
-            image_hash = (
-                hashlib.sha256(content_bytes).hexdigest()
-                if isinstance(content_bytes, (bytes, bytearray)) and len(content_bytes) > 0
-                else None
-            )
-            if image_hash:
-                cached_entry = _detection_cache.get(image_hash)
-                if cached_entry:
-                    expires_at, cached_result = cached_entry
-                    if expires_at > time.monotonic():
-                        _detection_cache.move_to_end(image_hash)
-                        logger.info("Cat detection cache hit for SHA256 hash")
-                        return cached_result
-                    _detection_cache.pop(image_hash, None)
+            content_bytes = await _read_detection_bytes(file)
+            image_hash = hashlib.sha256(content_bytes).hexdigest() if content_bytes else None
+            cached_result = _get_cached_detection(image_hash)
+            if cached_result:
+                return cached_result
 
             # Use Google Vision API to detect cats
             vision_result = await self.vision_service.detect_cats(file)
 
             # Convert Vision API result to our expected format
-            cats_detected = []
-            if vision_result.get("cat_objects"):
-                for obj in vision_result.get("cat_objects", []):
-                    cats_detected.append(
-                        {
-                            "description": f"Detected {obj.get('name', 'cat')}",
-                            "breed_guess": "Domestic cat",
-                            "position": "Center of image",
-                            "size": "Medium",
-                        }
-                    )
-            elif vision_result.get("cat_labels"):
-                for label in vision_result.get("cat_labels", []):
-                    cats_detected.append(
-                        {
-                            "description": f"Detected {label.get('description', 'cat')}",
-                            "breed_guess": "Domestic cat",
-                            "position": "Center of image",
-                            "size": "Medium",
-                        }
-                    )
+            cats_detected = _format_detected_cats(vision_result)
 
             # Format the result
             fallback_active = bool(
@@ -140,11 +156,7 @@ class CatDetectionService:
                 "fallback_active": fallback_active,
             }
 
-            if result.get("service_available") and image_hash:
-                _detection_cache[image_hash] = (time.monotonic() + _DETECTION_CACHE_TTL_SECONDS, result)
-                _detection_cache.move_to_end(image_hash)
-                while len(_detection_cache) > _DETECTION_CACHE_MAX_SIZE:
-                    _detection_cache.popitem(last=False)
+            _cache_detection_result(image_hash, result)
 
             return result
 

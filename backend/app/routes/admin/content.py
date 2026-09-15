@@ -12,7 +12,7 @@ from app.dependencies import (
 from app.limiter import limiter
 from app.logger import logger
 from app.middleware.auth_middleware import require_permission
-from app.routes.admin.helpers import CommonPagination, create_admin_audit_log, fetch_photo_by_id
+from app.routes.admin.helpers import ADMIN_ERROR_RESPONSES, CommonPagination, create_admin_audit_log, fetch_photo_by_id
 from app.schemas.admin_schemas import PhotoUpdateAdmin
 from app.schemas.user import User
 from app.services.email_service import EmailService
@@ -24,7 +24,7 @@ from app.utils.db_security import validate_or_raise_uuid as _validate_uuid
 router = APIRouter()
 
 
-@router.get("/photos", response_model=dict[str, Any])
+@router.get("/photos", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("60/minute")
 async def list_photos(
     request: Request,
@@ -65,7 +65,7 @@ async def list_photos(
         raise HTTPException(status_code=500, detail=f"Failed to fetch photos: {e}")
 
 
-@router.delete("/photos/{photo_id}")
+@router.delete("/photos/{photo_id}", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("20/minute")
 async def delete_photo_admin(
     photo_id: str,
@@ -136,7 +136,6 @@ async def delete_photo_admin(
             "DELETE_PHOTO",
             "photos",
             {"photo_id": photo_id, "owner_id": photo_data.get("user_id")},
-            request=request,
         )
 
         return {"message": f"Photo {photo_id} deletion scheduled"}
@@ -148,7 +147,7 @@ async def delete_photo_admin(
         raise HTTPException(status_code=500, detail=f"Failed to delete photo: {e}")
 
 
-@router.patch("/photos/{photo_id}", response_model=dict[str, Any])
+@router.patch("/photos/{photo_id}", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("20/minute")
 async def update_photo_admin(
     request: Request,

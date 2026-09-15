@@ -54,11 +54,15 @@ def mock_auth_service(app):
     auth_service = MagicMock()
     # Configure async methods
     auth_service.get_user_by_email = AsyncMock()
+    auth_service.get_user_by_email_unverified = AsyncMock(
+        return_value={"id": "00000000-0000-4000-a000-000000000123", "email_confirmed_at": None}
+    )
     auth_service.create_user_with_password = AsyncMock()
     auth_service.authenticate_user = AsyncMock()
     auth_service.get_user_by_id = AsyncMock()
     auth_service.verify_refresh_token = AsyncMock()
     auth_service.revoke_token = AsyncMock()
+    auth_service.consume_refresh_token = AsyncMock(return_value=True)
     auth_service.reset_password = AsyncMock()
     auth_service.create_password_reset_token = AsyncMock()
 
@@ -78,17 +82,29 @@ def mock_auth_service(app):
 @pytest.fixture
 def mock_limiter():
     """Mock rate limiter to avoid rate limit issues in tests"""
-    with patch("app.routes.auth.auth_limiter") as mock1, patch("app.routes.auth.forgot_password_limiter") as mock2:
+    with (
+        patch("app.routes.auth.auth_limiter") as mock1,
+        patch("app.routes.auth.forgot_password_limiter") as mock2,
+        patch("app.routes.auth.refresh_token_limiter") as mock3,
+    ):
         mock1.limit = lambda x: lambda f: f
         mock2.limit = lambda x: lambda f: f
-        yield mock1, mock2
+        mock3.limit = lambda x: lambda f: f
+        yield mock1, mock2, mock3
+
+
+@pytest.fixture(autouse=True)
+def mock_password_breach_check():
+    """Keep route tests deterministic without calling the HIBP API."""
+    with patch("app.routes.auth.password_service.is_password_pwned", new=AsyncMock(return_value=False)):
+        yield
 
 
 class TestRegisterEndpoint:
     """Tests for POST /auth/register"""
 
     TEST_EMAIL = "test@example.com"
-    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "ValidPass123!")  # nosonar
+    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "valid-test-passphrase")  # nosonar
     TEST_NAME = "Test User"
 
     async def test_register_success(self, client, mock_auth_service, mock_limiter):
@@ -106,15 +122,21 @@ class TestRegisterEndpoint:
         mock_auth_service.create_access_token.return_value = "test-access-token"
         mock_auth_service.create_refresh_token.return_value = "test-refresh-token"
 
-        # Make request
-        response = await client.post(
-            "/api/v1/auth/register",
-            json={
-                "email": self.TEST_EMAIL,
-                "password": self.TEST_PASSWORD,
-                "name": self.TEST_NAME,
-            },
-        )
+        # Make request without a second HIBP lookup; the user service owns that check.
+        with patch(
+            "app.routes.auth.password_service.validate_new_password",
+            new=AsyncMock(return_value=(True, None)),
+        ) as validate_password:
+            response = await client.post(
+                "/api/v1/auth/register",
+                json={
+                    "email": self.TEST_EMAIL,
+                    "password": self.TEST_PASSWORD,
+                    "name": self.TEST_NAME,
+                },
+            )
+
+        validate_password.assert_awaited_once_with(self.TEST_PASSWORD, check_breach=False)
 
         # Check status first, then details
         if response.status_code == 200:
@@ -124,27 +146,27 @@ class TestRegisterEndpoint:
             assert "verification code" in data["message"]
             assert data["email"] == "test@example.com"
 
-    async def test_register_allows_weak_password(self, client, mock_auth_service, mock_limiter):
-        """Registration does not reject a weak password before Supabase Auth."""
+    async def test_register_rejects_password_shorter_than_minimum(self, client, mock_auth_service, mock_limiter):
+        """Registration rejects passwords shorter than fifteen characters."""
         response = await client.post(
             "/api/v1/auth/register",
             json={
                 "email": "test@example.com",
-                "password": "short",  # nosonar - intentionally invalid test input
+                "password": "short",  # pragma: allowlist secret
                 "name": "Test User",
             },
         )
 
-        assert response.status_code == 200
-        mock_auth_service.create_user_with_password.assert_awaited_once_with("test@example.com", "short", "Test User")
+        assert response.status_code == 422
+        mock_auth_service.create_user_with_password.assert_not_awaited()
 
     async def test_register_allows_password_without_complexity(self, client, mock_auth_service, mock_limiter):
-        """Registration does not reject missing character classes."""
+        """Registration accepts passphrases without character-class requirements."""
         response = await client.post(
             "/api/v1/auth/register",
             json={
                 "email": "unique_no_number@example.com",
-                "password": "longpasswordwithoutnumbers",  # nosonar - test fixture, 8+ chars, no numbers
+                "password": "longpasswordwithoutnumbers",  # pragma: allowlist secret
                 "name": "Test User",
             },
         )
@@ -182,14 +204,8 @@ class TestRegisterEndpoint:
             },
         )
 
-        # Should be 400/409 for duplicate, or 429 if rate limited
-        assert response.status_code in [400, 409, 429]
-        if response.status_code in [400, 409]:
-            assert (
-                "already in use" in response.json()["detail"].lower()
-                or "already registered" in response.json()["detail"].lower()
-                or "email" in response.json()["detail"].lower()
-            )
+        assert response.status_code == 200
+        assert response.json()["message"] == "If this address can be registered, a verification code will be sent."
 
 
 class TestLoginEndpoint:
@@ -230,7 +246,7 @@ class TestLoginEndpoint:
 
         response = await client.post(
             "/api/v1/auth/login",
-            json={"email": "test@example.com", "password": "wrongpassword"},
+            json={"email": "test@example.com", "password": "wrongpassword"},  # pragma: allowlist secret
         )
 
         assert response.status_code == 401
@@ -240,7 +256,7 @@ class TestLoginEndpoint:
         """Test login fails with invalid email format"""
         response = await client.post(
             "/api/v1/auth/login",
-            json={"email": "not-an-email", "password": "somepassword"},
+            json={"email": "not-an-email", "password": "somepassword"},  # pragma: allowlist secret
         )
 
         assert response.status_code == 422  # Validation error
@@ -332,6 +348,24 @@ class TestRefreshTokenEndpoint:
         assert data["access_token"] is None
         assert "expired" in data.get("message", "").lower() or "session" in data.get("message", "").lower()
 
+    async def test_refresh_token_rotation_loser_does_not_delete_newer_cookie(self, client, mock_auth_service):
+        """A concurrent rotation loser must not overwrite the winner's Set-Cookie response."""
+        mock_auth_service.verify_refresh_token.return_value = {"user_id": "test-user-id"}
+        mock_auth_service.get_user_by_id.return_value = User(
+            id="test-user-id",
+            email="test@example.com",
+            name="Test User",
+            created_at=datetime(2024, 1, 1),
+        )
+        mock_auth_service.consume_refresh_token.return_value = False
+        client.cookies.set("refresh_token", "concurrently-consumed-token")
+
+        response = await client.post("/api/v1/auth/refresh-token")
+
+        assert response.status_code == 200
+        assert response.json()["access_token"] is None
+        assert "set-cookie" not in response.headers
+
     async def test_refresh_token_blocks_suspended_accounts(self, client, mock_auth_service):
         """Test refresh does not mint new tokens for banned users."""
         from unittest.mock import AsyncMock
@@ -407,7 +441,7 @@ class TestResetPasswordEndpoint:
 
         response = await client.post(
             "/api/v1/auth/reset-password",
-            json={"token": "valid-reset-token", "new_password": "newpassword123"},  # nosonar - test fixture
+            json={"token": "valid-reset-token", "new_password": "new-password-passphrase"},  # pragma: allowlist secret
         )
 
         if response.status_code == 200:
@@ -421,7 +455,7 @@ class TestResetPasswordEndpoint:
 
         response = await client.post(
             "/api/v1/auth/reset-password",
-            json={"token": "invalid-token", "new_password": "newpassword123"},  # nosonar - test fixture
+            json={"token": "invalid-token", "new_password": "new-password-passphrase"},  # pragma: allowlist secret
         )
 
         # If mock is active, should return 400; if not, may return 200
@@ -464,7 +498,9 @@ class TestInputValidation:
 
     def test_register_input_valid(self) -> None:
         """Test valid RegisterInput"""
-        data = RegisterInput(email="test@example.com", password="password123", name="Test User")  # nosonar
+        data = RegisterInput(
+            email="test@example.com", password="correct horse battery staple", name="Test User"
+        )  # nosonar
         assert data.email == "test@example.com"
 
     def test_login_request_valid(self) -> None:
@@ -509,6 +545,21 @@ class TestOtherAuthEndpoints:
             # mock_auth_service already mocks otp_service via dependency_overrides
             response = await client.post("/api/v1/auth/resend-otp", json={"email": "test@example.com"})
             assert response.status_code == 200
+
+    async def test_resend_otp_does_not_reveal_account_state(self, client, mock_auth_service):
+        generic = {"message": "If this account needs verification, a code will be sent.", "expires_at": None}
+        with patch("app.routes.auth.email_service"):
+            mock_auth_service.get_user_by_email_unverified.return_value = None
+            missing = await client.post("/api/v1/auth/resend-otp", json={"email": "missing@example.com"})
+            mock_auth_service.get_user_by_email_unverified.return_value = {
+                "id": "1",
+                "email": "verified@example.com",
+                "email_confirmed_at": "2026-01-01T00:00:00Z",
+            }
+            confirmed = await client.post("/api/v1/auth/resend-otp", json={"email": "verified@example.com"})
+
+        assert missing.status_code == confirmed.status_code == 200
+        assert missing.json() == confirmed.json() == generic
 
     @pytest.mark.asyncio
     async def test_sync_user(self, client, app):

@@ -1,6 +1,7 @@
 <template>
   <div ref="wrapperRef" class="relative">
     <button
+type="button"
       class="group relative w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-btn-accent-e)] border-2 border-[var(--color-btn-accent-a)] text-[var(--color-btn-accent-a)] shrink-0 transition-all duration-[150ms] ease-out hover:bg-[var(--color-btn-accent-d)] hover:translate-y-[0.1rem] active:translate-y-[0.25rem] preserve-3d will-change-transform"
       :class="{
         'bg-[var(--color-btn-accent-a)] text-white border-[var(--color-btn-accent-a)]': isOpen,
@@ -52,6 +53,7 @@
             {{ $t('notifications.title') }}
           </h3>
           <button
+type="button"
             class="text-terracotta bg-transparent border-none cursor-pointer transition-all duration-200 hover:text-brown-light hover:text-shadow-[0_0_8px_rgba(214,122,79,0.2)] text-[11px] font-bold uppercase tracking-wider"
             @click="store.markAllRead"
           >
@@ -98,20 +100,18 @@
               {{ $t('notifications.empty') }}
             </p>
           </div>
-          <div
+          <button
             v-for="notification in store.notifications"
             :key="notification.id"
-            role="button"
-            tabindex="0"
-            class="p-4 transition-all duration-300 cursor-pointer relative border-b border-brown/5 hover:bg-brown/3 focus:outline-none focus:bg-brown/5"
+            type="button"
+            class="relative w-full border-0 border-b border-brown/5 bg-transparent p-4 text-left transition-all duration-300 cursor-pointer hover:bg-brown/3 focus:outline-none focus:bg-brown/5"
             :class="{ 'bg-terracotta/4': !notification.is_read }"
             @click="handleRead(notification)"
-            @keydown.enter="handleRead(notification)"
           >
             <div class="flex gap-4">
               <div class="relative">
                 <img
-                  :src="notification.actor_picture || getAvatarFallback(null)"
+                  :src="getAvatarSrc(notification.actor_picture)"
                   referrerpolicy="no-referrer"
                   class="w-10 h-10 rounded-full flex-shrink-0 object-cover border-2 border-white shadow-sm bg-stone-100"
                   :alt="$t('social.actor')"
@@ -138,7 +138,7 @@
                 </p>
               </div>
             </div>
-          </div>
+          </button>
 
           <!-- Infinite Scroll Trigger Element -->
           <div
@@ -169,7 +169,7 @@ import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useRouter } from 'vue-router';
 import type { Notification } from '@/services/notificationService';
-import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
+import { getAvatarSrc, handleAvatarError } from '@/utils/avatar';
 
 const store = useNotificationStore();
 const router = useRouter();
@@ -187,10 +187,10 @@ function handleRead(notification: Notification): void {
   if (!notification.is_read) {
     store.markRead(notification.id);
   }
-  if (notification.resource_type === 'photo' && notification.resource_id) {
-    router.push({ path: '/profile', query: { image: notification.resource_id } });
-    isOpen.value = false;
-  } else if (notification.resource_type === 'comment' && notification.resource_id) {
+  if (
+    (notification.resource_type === 'photo' || notification.resource_type === 'comment') &&
+    notification.resource_id
+  ) {
     router.push({ path: '/profile', query: { image: notification.resource_id } });
     isOpen.value = false;
   } else if (notification.resource_type === 'user' && notification.resource_id) {
@@ -259,7 +259,7 @@ watch(isOpen, async (newVal) => {
       setupObserver();
     }
   } else {
-    if (observer) observer.disconnect();
+    observer?.disconnect();
   }
 });
 

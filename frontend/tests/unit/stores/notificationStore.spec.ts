@@ -203,6 +203,41 @@ describe('notificationStore', () => {
 
       expect(mockChannel.subscribe).toHaveBeenCalledTimes(1);
     });
+
+    it('hydrates actor details and updates the unread count for realtime inserts', async () => {
+      mockGetPublicProfile.mockResolvedValue({ name: 'Actor', picture: '/actor.jpg' });
+      const store = useNotificationStore();
+      store.serverUnreadCount = 0;
+      const handler = mockChannel.on.mock.calls[0]?.[2] as (payload: {
+        new: { id: string; actor_id: string; is_read: boolean };
+      }) => Promise<void>;
+      const notification = { id: 'incoming-1', actor_id: 'actor-1', is_read: false };
+
+      await handler({ new: notification });
+
+      expect(mockGetPublicProfile).toHaveBeenCalledWith('actor-1');
+      expect(notification).toMatchObject({ actor_name: 'Actor', actor_picture: '/actor.jpg' });
+      expect(store.serverUnreadCount).toBe(1);
+      expect(store.notifications[0]).toMatchObject(notification);
+    });
+
+    it('uses the actor cache and accepts notifications without an actor', async () => {
+      mockGetPublicProfile.mockResolvedValue({ name: 'Actor', picture: '/actor.jpg' });
+      const store = useNotificationStore();
+      const handler = mockChannel.on.mock.calls[0]?.[2] as (payload: {
+        new: { id: string; actor_id?: string; is_read: boolean };
+      }) => Promise<void>;
+
+      const first = { id: 'incoming-1', actor_id: 'actor-1', is_read: false };
+      const second = { id: 'incoming-2', actor_id: 'actor-1', is_read: false };
+      await handler({ new: first });
+      await handler({ new: second });
+      await handler({ new: { id: 'incoming-3', is_read: false } });
+
+      expect(mockGetPublicProfile).toHaveBeenCalledTimes(1);
+      expect(second).toMatchObject({ actor_name: 'Actor', actor_picture: '/actor.jpg' });
+      expect(store.notifications).toHaveLength(3);
+    });
   });
 
   describe('unsubscribe', () => {

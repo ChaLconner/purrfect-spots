@@ -183,6 +183,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          STAGING_FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
           STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -192,6 +193,7 @@ jobs:
             VERCEL_TOKEN
             VERCEL_ORG_ID
             VERCEL_PROJECT_ID
+            STAGING_FRONTEND_URL
             STAGING_API_URL
             SUPABASE_URL
             SUPABASE_KEY
@@ -244,6 +246,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          STAGING_FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -269,6 +272,23 @@ jobs:
             exit 1
           fi
 
+          # Manual CLI deployments do not automatically receive the stable
+          # staging alias used by backend CORS and the deployment environment.
+          # Bind the verified preview deployment to that alias before exposing
+          # it as the staging URL.
+          STAGING_ALIAS="${STAGING_FRONTEND_URL#https://}"
+          STAGING_ALIAS="${STAGING_ALIAS#http://}"
+          STAGING_ALIAS="${STAGING_ALIAS%/}"
+          vercel alias set "$URL" "$STAGING_ALIAS" --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
+          URL="https://${STAGING_ALIAS}"
+
+          FRONTEND_STATUS=$(curl --show-error --silent --location --max-time 15 \
+            --output /dev/null --write-out '%{http_code}' "$URL/")
+          if [ "$FRONTEND_STATUS" != "200" ]; then
+            echo "::error::Staging frontend alias returned HTTP ${FRONTEND_STATUS}: ${URL}"
+            exit 1
+          fi
+
           echo "deployment_url=${URL}" >> "$GITHUB_OUTPUT"
           echo "Staging frontend deployed to ${URL}"
 
@@ -288,7 +308,7 @@ jobs:
             exit 0
           fi
 
-          npm install -g @sentry/cli --silent
+          npm install -g @sentry/cli@3.6.2 --silent
           sentry-cli releases new "${VERSION}" --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
           sentry-cli releases set-commits "${VERSION}" --auto --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
           sentry-cli releases deploys "${VERSION}" new --env staging --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
@@ -769,7 +789,6 @@ jobs:
 
       - name: Create Sentry release (production)
         if: success()
-        continue-on-error: true
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
@@ -783,7 +802,7 @@ jobs:
             exit 0
           fi
 
-          npm install -g @sentry/cli --silent
+          npm install -g @sentry/cli@3.6.2 --silent
           sentry-cli releases new "${VERSION}" --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
           sentry-cli releases set-commits "${VERSION}" --auto --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
           sentry-cli releases deploys "${VERSION}" new --env production --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"

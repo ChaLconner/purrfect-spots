@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
+import { getAvatarSrc, handleAvatarError } from '@/utils/avatar';
 import { formatDate } from '@/utils/date';
 
 /**
@@ -69,7 +69,7 @@ const formatLocalDate = (dateString?: string | null): string => {
           class="absolute inset-0 bg-terracotta rounded-full blur-md opacity-20 group-hover:opacity-40 transition-opacity duration-500"
         ></div>
         <img
-          :src="picture || getAvatarFallback(name)"
+          :src="getAvatarSrc(picture, name)"
           :alt="name || t('profile.unknownUser')"
           referrerpolicy="no-referrer"
           class="w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full object-cover border-4 shadow-md relative z-10 bg-stone-100 transition-all duration-300 group-hover:scale-[1.02]"
@@ -88,7 +88,8 @@ const formatLocalDate = (dateString?: string | null): string => {
           </svg>
         </div>
         <button
-          v-if="isOwnProfile"
+v-if="isOwnProfile"
+          type="button"
           class="absolute bottom-2 right-2 p-1.5 sm:p-2 bg-white text-terracotta rounded-full shadow-lg hover:bg-terracotta hover:text-white transition-all transform hover:scale-110 z-20 cursor-pointer"
           :title="t('common.edit')"
           :aria-label="t('common.edit')"
@@ -246,7 +247,8 @@ const formatLocalDate = (dateString?: string | null): string => {
 
           <!-- Logout Button (Mobile/Tablet only) -->
           <button
-            v-if="isOwnProfile"
+v-if="isOwnProfile"
+            type="button"
             class="text-xs bg-red-50 text-red-600 hover:bg-red-600 hover:text-white px-3 py-1 rounded-lg transition-all font-bold border border-red-200 lg:hidden"
             @click="$emit('logout')"
           >

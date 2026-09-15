@@ -13,8 +13,8 @@
             :aria-label="t('galleryPage.aria.galleryChunk')"
           >
             <button
-              v-for="(image, subIndex) in item.images"
-              :key="image.id"
+              v-for="(catLocation, subIndex) in item.images"
+              :key="catLocation.id"
               type="button"
               class="w-full h-full mb-0 p-0 border-none bg-transparent text-left focus:outline-none focus-visible:[&_.image-card]:outline-3 focus-visible:[&_.image-card]:outline-secondary focus-visible:[&_.image-card]:outline-offset-4 animate-[galleryFadeIn_0.6s_cubic-bezier(0.2,0.8,0.2,1)_both] [animation-delay:var(--gallery-delay)]"
               :class="[
@@ -23,10 +23,10 @@
               :style="{ '--gallery-delay': `${(Number(subIndex) % 10) * 0.05}s` }"
               :aria-label="
                 t('galleryPage.aria.viewCat', {
-                  location: image.location_name || t('galleryPage.modal.aCat'),
+                  location: catLocation.location_name || t('galleryPage.modal.aCat'),
                 })
               "
-              @click="$emit('open-modal', image, Number(item.index) + Number(subIndex))"
+              @click="$emit('open-modal', catLocation, Number(item.index) + Number(subIndex))"
             >
               <!-- Glass-framed Image Card -->
               <div
@@ -34,7 +34,7 @@
               >
                 <!-- Placeholder -->
                 <div
-                  v-if="!loadedImages.has(image.id)"
+                  v-if="!loadedImages.has(catLocation.id)"
                   class="absolute inset-0 z-10 h-full w-full rounded bg-[#f0fdf4] after:absolute after:inset-0 after:-translate-x-full after:animate-[shimmer_1.5s_infinite] after:bg-gradient-to-r after:from-transparent after:via-white/60 after:to-transparent after:content-['']"
                   aria-hidden="true"
                 >
@@ -54,18 +54,18 @@
                     decoding="async"
                     width="800"
                     height="600"
-                    :src="image.image_url"
-                    :srcset="generateSrcSet(image.image_url)"
+                    :src="catLocation.image_url"
+                    :srcset="generateSrcSet(catLocation.image_url)"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     :alt="
-                      image.location_name
-                        ? t('galleryPage.modal.aCatAt', { location: image.location_name })
+                      catLocation.location_name
+                        ? t('galleryPage.modal.aCatAt', { location: catLocation.location_name })
                         : t('galleryPage.modal.aCat')
                     "
                     class="block h-full w-full scale-100 rounded object-cover opacity-0 shadow-md transition-[transform,opacity] duration-500 ease-in-out group-hover:scale-105"
-                    :class="{ 'opacity-100': loadedImages.has(image.id) }"
-                    @load="handleImageLoad(image.id)"
-                    @error="handleImageError(image.id, $event)"
+                    :class="{ 'opacity-100': loadedImages.has(catLocation.id) }"
+                    @load="handleImageLoad(catLocation.id)"
+                    @error="handleImageError(catLocation.id, $event)"
                   />
                 </div>
               </div>
@@ -82,9 +82,9 @@
       class="flex h-4 w-full flex-col items-center gap-3 p-8"
       aria-hidden="true"
     ></div>
-    <span v-if="loadingMore" class="sr-only" role="status" aria-live="polite">
+    <output v-if="loadingMore" class="sr-only" aria-live="polite">
       {{ t('galleryPage.loading') }}
-    </span>
+    </output>
   </div>
 </template>
 
@@ -174,9 +174,12 @@ function generateSrcSet(url: string): string {
     .map((width) => {
       // 1. Supabase Storage (Native)
       if (url.includes('supabase.co')) {
-        const newUrl = url.includes('width=')
-          ? url.replace(/width=\d+/, `width=${width}`)
-          : `${url}${url.includes('?') ? '&' : '?'}width=${width}`;
+        let newUrl: string;
+        if (url.includes('width=')) {
+          newUrl = url.replace(/width=\d+/, `width=${width}`);
+        } else {
+          newUrl = `${url}${url.includes('?') ? '&' : '?'}width=${width}`;
+        }
         return `${newUrl} ${width}w`;
       }
 

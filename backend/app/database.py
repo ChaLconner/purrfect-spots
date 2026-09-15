@@ -12,7 +12,7 @@ def _positive_int_env(name: str, default: int, *, minimum: int = 0) -> int:
     """Read bounded pool settings without crashing on malformed deployment env."""
     try:
         return max(minimum, int(os.getenv(name, str(default))))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         logger.warning("Invalid %s; using default %s", name, default)
         return default
 
@@ -76,7 +76,7 @@ AsyncSessionLocal = (
 )
 
 
-async def get_db() -> AsyncGenerator[AsyncSession | None, None]:
+async def get_db() -> AsyncGenerator[AsyncSession | None]:
     """
     FastAPI dependency that provides an async database session.
     Returns None if the database engine is not available.

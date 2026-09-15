@@ -117,7 +117,7 @@ class GalleryWriteMixin(GalleryBaseMixin):
             raise e
 
     async def process_photo_deletion(
-        self, photo_id: str, image_url: str, user_id: str, storage_service: "StorageService"
+        self, photo_id: str, image_url: str, user_id: str, storage_service: StorageService
     ) -> None:
         """Background task to handle photo deletion."""
         try:

@@ -30,7 +30,7 @@ describe('PasswordStrengthMeter global translations', () => {
   it('renders password strength labels from the global locale scope', async () => {
     vi.useFakeTimers();
     const wrapper = mount(PasswordStrengthMeter, {
-      props: { password: '123' },
+      props: { value: '123' },
       global: { stubs: { transition: false } },
     });
 

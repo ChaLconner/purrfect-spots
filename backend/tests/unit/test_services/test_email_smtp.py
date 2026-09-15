@@ -46,6 +46,16 @@ class TestEmailServiceSMTP(unittest.TestCase):
         # Assertions
         self.assertFalse(result)
 
+    def test_missing_credentials_never_logs_or_reports_delivery(self) -> None:
+        self.service.smtp_user = None
+        self.service.smtp_password = None
+        with patch("app.services.email_service.logger") as mock_logger:
+            self.assertFalse(self.service.send_otp_email(self.test_email, "123456"))
+            self.assertFalse(self.service.send_reset_email(self.test_email, "secret-reset-link"))
+            logged = " ".join(str(call) for call in mock_logger.method_calls)
+        self.assertNotIn("123456", logged)
+        self.assertNotIn("secret-reset-link", logged)
+
 
 if __name__ == "__main__":
     unittest.main()

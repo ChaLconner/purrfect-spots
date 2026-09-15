@@ -34,6 +34,7 @@ const NavAuthSection = defineAsyncComponent({
       <!-- Left Section: Logo + Brand + Cat Counter -->
       <div class="flex items-center gap-2 lg:gap-3 shrink-0">
         <button
+type="button"
           class="relative flex items-center cursor-pointer p-0.5 rounded-2xl bg-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-btn-shade-a"
           :aria-label="$t('accessibility.goToHome')"
           @click="router.push('/')"

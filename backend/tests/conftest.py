@@ -36,7 +36,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Mock bcrypt before it's imported by services to avoid PyO3 initialization error
 try:
     import bcrypt  # noqa: F401
-except (ImportError, RuntimeError, Exception):
+except ImportError, RuntimeError, Exception:
     mock_bcrypt = MagicMock()
     mock_bcrypt.gensalt.return_value = b"$2b$12$test"
     mock_bcrypt.hashpw.return_value = b"hashed"
@@ -125,7 +125,7 @@ from app.main import app
 
 
 @pytest.fixture(autouse=True)
-def disable_rate_limit() -> Generator[None, None, None]:
+def disable_rate_limit() -> Generator[None]:
     """Disable rate limiting for all tests"""
     from app.limiter import auth_limiter, limiter, strict_limiter, upload_limiter
     from app.services.cat_detection_service import clear_detection_cache
@@ -151,7 +151,7 @@ def disable_rate_limit() -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True)
-def mock_redis_service() -> Generator[None, None, None]:
+def mock_redis_service() -> Generator[None]:
     """Globally mock redis_service to prevent external connections and hangs during tests"""
     from unittest.mock import AsyncMock, patch
 
@@ -171,7 +171,7 @@ def mock_redis_service() -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True)
-def clear_all_caches() -> Generator[None, None, None]:
+def clear_all_caches() -> Generator[None]:
     """Clear all memory and redis caches before every test to ensure test isolation"""
     from app.utils.cache import memory_cache
 
@@ -271,7 +271,7 @@ def sample_image_bytes() -> bytes:
 
 
 @pytest.fixture(autouse=True)
-def mock_boto3_client() -> Generator[MagicMock, None, None]:
+def mock_boto3_client() -> Generator[MagicMock]:
     """Mock boto3 client to prevent real AWS calls during tests"""
     with patch("boto3.client") as mock:
         mock_s3 = MagicMock()
@@ -280,7 +280,7 @@ def mock_boto3_client() -> Generator[MagicMock, None, None]:
 
 
 @pytest.fixture(autouse=True)
-def mock_async_supabase() -> Generator[MagicMock, None, None]:
+def mock_async_supabase() -> Generator[MagicMock]:
     """
     Mock the async_supabase client with proper async behavior.
     """
@@ -341,7 +341,7 @@ class MockUser:
 
 
 @pytest.fixture
-def mock_supabase_auth() -> Generator[MagicMock, None, None]:
+def mock_supabase_auth() -> Generator[MagicMock]:
     """Mock the Supabase auth client"""
     with patch("app.dependencies.get_supabase_auth") as mock:
         client = MagicMock()

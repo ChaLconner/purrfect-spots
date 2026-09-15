@@ -64,7 +64,7 @@ describe('security utils', () => {
     it('truncates to max length', () => {
       const long = 'a'.repeat(2000);
       const result = sanitizeInput(long, 500);
-      expect(result.length).toBe(500);
+      expect(result).toHaveLength(500);
     });
 
     it('returns empty string for null/undefined', () => {
@@ -189,34 +189,22 @@ describe('security utils', () => {
   });
 
   describe('validatePassword', () => {
-    it('validates strong passwords', () => {
-      const result = validatePassword('Password1');
+    it.each([
+      ['strong passwords', 'LongPassword123'],
+      ['fifteen-character passphrases', '123456789012345'],
+      ['missing uppercase letters because strength is advisory', 'longpassword1234'],
+      ['missing lowercase letters because strength is advisory', 'LONGPASSWORD1234'],
+      ['missing numbers because strength is advisory', 'LongPasswordOnly'],
+    ])('accepts %s', (_caseName, password) => {
+      const result = validatePassword(password);
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
-    it('allows short passwords because strength is advisory', () => {
-      const result = validatePassword('Pass1');
-      expect(result.valid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('allows missing uppercase letters because strength is advisory', () => {
-      const result = validatePassword('password1');
-      expect(result.valid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('allows missing lowercase letters because strength is advisory', () => {
-      const result = validatePassword('PASSWORD1');
-      expect(result.valid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('allows missing numbers because strength is advisory', () => {
-      const result = validatePassword('Password');
-      expect(result.valid).toBe(true);
-      expect(result.errors).toHaveLength(0);
+    it('rejects passwords shorter than fifteen characters', () => {
+      const result = validatePassword('Pass123');
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('Password must be at least 15 characters');
     });
 
     it('still requires a non-empty password', () => {

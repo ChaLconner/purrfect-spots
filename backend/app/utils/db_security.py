@@ -282,7 +282,7 @@ def validate_positive_int(value: str, max_value: int = 1000000) -> int | None:
         num = int(value)
         if 0 < num <= max_value:
             return num
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
     return None
 

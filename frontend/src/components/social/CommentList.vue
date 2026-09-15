@@ -73,12 +73,14 @@
               />
               <div class="flex justify-end gap-2 mt-2">
                 <button
+type="button"
                   class="text-[11px] font-bold text-gray-400 hover:text-gray-600 px-2 py-1"
                   @click="cancelEdit"
                 >
                   {{ $t('common.cancel') }}
                 </button>
                 <button
+type="button"
                   class="text-[11px] font-bold text-sage hover:text-sage-dark px-3 py-1 bg-sage/10 rounded-lg transition-colors"
                   :disabled="isUpdating"
                   @click="saveEdit(comment.id)"
@@ -97,6 +99,7 @@
               class="absolute bottom-2 right-2 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity bg-white/60 backdrop-blur-sm rounded-lg p-0.5"
             >
               <button
+type="button"
                 class="text-sage hover:text-sage-dark transition-colors p-1"
                 :title="$t('accessibility.editComment')"
                 @click="startEdit(comment)"
@@ -117,6 +120,7 @@
                 </svg>
               </button>
               <button
+type="button"
                 class="text-terracotta hover:text-terracotta-dark transition-colors p-1"
                 :title="$t('accessibility.removeComment')"
                 @click.stop="confirmDeleteComment(comment.id)"
@@ -144,6 +148,7 @@
       <!-- View All Toggle -->
       <div v-if="comments.length > 3" class="flex justify-center mt-2">
         <button
+type="button"
           class="text-xs font-bold text-brown-light hover:text-brown transition-colors py-1.5 px-3 bg-white/40 rounded-full border border-brown-light/10"
           @click="showAll = !showAll"
         >
@@ -209,6 +214,7 @@ import { useToastStore } from '@/stores';
 import { useAuthStore } from '@/stores/authStore';
 import { BaseButton, BaseCard, BaseInput, BaseConfirmModal } from '@/components/ui';
 import { EXTERNAL_URLS } from '@/utils/constants';
+import { sanitizeAvatarUrl } from '@/utils/avatar';
 import { formatTimestamp } from '@/utils/date';
 import { useI18n } from 'vue-i18n';
 
@@ -252,7 +258,7 @@ function getAvatarUrl(comment: Comment): string {
   if (avatarErrors.value[comment.id]) {
     return EXTERNAL_URLS.DEFAULT_AVATAR; // Use valid fallback
   }
-  return comment.user_picture || EXTERNAL_URLS.DEFAULT_AVATAR;
+  return sanitizeAvatarUrl(comment.user_picture) || EXTERNAL_URLS.DEFAULT_AVATAR;
 }
 
 function handleAvatarError(commentId: string): void {

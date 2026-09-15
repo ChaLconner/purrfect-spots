@@ -12,7 +12,7 @@ from app.services.report_service import ReportService
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
 
-@router.post("/", response_model=ReportResponse, status_code=201)
+@router.post("/", status_code=201, responses={500: {"description": "Internal Server Error"}})
 @limiter.limit("5/minute")
 async def create_report(
     request: Request,
@@ -36,7 +36,7 @@ async def create_report(
         raise HTTPException(status_code=500, detail="Failed to submit report")
 
 
-@router.get("/my-reports", response_model=list[ReportResponse])
+@router.get("/my-reports", responses={500: {"description": "Internal Server Error"}})
 async def list_my_reports(
     current_user: Annotated[User, Depends(get_current_user)],
     report_service: Annotated[ReportService, Depends(get_report_service)],

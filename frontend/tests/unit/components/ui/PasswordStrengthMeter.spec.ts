@@ -29,7 +29,7 @@ describe('PasswordStrengthMeter.vue', () => {
 
   const mountMeter = (password: string) =>
     mount(PasswordStrengthMeter, {
-      props: { password },
+      props: { value: password },
       global: {
         plugins: [i18n],
         stubs: { transition: false },

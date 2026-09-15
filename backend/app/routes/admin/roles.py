@@ -9,7 +9,7 @@ from app.constants.admin_permissions import ALL_PERMISSION_CODES, normalize_perm
 from app.dependencies import get_async_supabase_admin_client
 from app.logger import logger
 from app.middleware.auth_middleware import invalidate_user_auth_cache, require_permission
-from app.routes.admin.helpers import create_admin_audit_log
+from app.routes.admin.helpers import ADMIN_ERROR_RESPONSES, create_admin_audit_log
 from app.schemas.user import User
 from app.services.redis_service import redis_service
 
@@ -40,7 +40,7 @@ class RolePermissionUpdate(BaseModel):
     permission_ids: list[str]
 
 
-@router.get("")
+@router.get("", responses=ADMIN_ERROR_RESPONSES)
 async def list_roles(
     current_admin: Annotated[User, Depends(require_permission("roles:read"))],
 ) -> list[dict[str, Any]]:
@@ -70,7 +70,7 @@ async def list_roles(
         raise HTTPException(status_code=500, detail="Failed to fetch roles")
 
 
-@router.get("/permissions")
+@router.get("/permissions", responses=ADMIN_ERROR_RESPONSES)
 async def list_permissions(
     current_admin: Annotated[User, Depends(require_permission("roles:manage"))],
 ) -> list[dict[str, Any]]:
@@ -106,7 +106,7 @@ async def list_permissions(
         raise HTTPException(status_code=500, detail="Failed to fetch permissions")
 
 
-@router.get("/{role_id}/permissions")
+@router.get("/{role_id}/permissions", responses=ADMIN_ERROR_RESPONSES)
 async def get_role_permissions(
     role_id: str,
     current_admin: Annotated[User, Depends(require_permission("roles:read"))],
@@ -127,7 +127,7 @@ async def get_role_permissions(
         raise HTTPException(status_code=500, detail="Failed to fetch role permissions")
 
 
-@router.post("/{role_id}/permissions")
+@router.post("/{role_id}/permissions", responses=ADMIN_ERROR_RESPONSES)
 async def update_role_permissions(
     role_id: str,
     request: Request,
@@ -153,7 +153,6 @@ async def update_role_permissions(
             "UPDATE_ROLE_PERMISSIONS",
             "roles",
             {"role_id": role_id, "new_permissions": data.permission_ids},
-            request=request,
         )
 
         # Invalidate role/permission caches so next request gets fresh data
