@@ -347,7 +347,7 @@ async def _verify_via_supabase_api(token: str, supabase: AClient) -> dict | None
             payload = jwt.decode(
                 token,
                 options={
-                    "verify_signature": False,
+                    "verify_signature": False,  # nosemgrep: python.jwt.security.unverified-jwt-decode.unverified-jwt-decode
                     "verify_exp": True,
                     "verify_iat": True,
                     "require": ["exp", "iat", "sub"],

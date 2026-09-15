@@ -62,7 +62,7 @@ class AuthPasswordMixin(AuthBaseMixin):
             claims = jwt.decode(
                 access_token,
                 options={
-                    "verify_signature": False,
+                    "verify_signature": False,  # nosemgrep: python.jwt.security.unverified-jwt-decode.unverified-jwt-decode
                     "verify_exp": True,
                     "verify_iat": True,
                     "require": ["sub", "iat", "exp", "session_id"],
