@@ -263,6 +263,12 @@ class Config:
             )
             JWT_REFRESH_SECRET = "dev-refresh-secret-do-not-use-in-production-32chars"  # nosec S105  # pragma: allowlist secret
 
+    if ENVIRONMENT.lower() == "production":
+        if len(JWT_SECRET.encode()) < 32 or len(JWT_REFRESH_SECRET.encode()) < 32:
+            raise ConfigurationError("JWT signing secrets must each contain at least 32 bytes")
+        if JWT_SECRET == JWT_REFRESH_SECRET:
+            raise ConfigurationError("JWT_SECRET and JWT_REFRESH_SECRET must be different")
+
     JWT_REFRESH_EXPIRATION_DAYS = int(os.getenv("JWT_REFRESH_EXPIRATION_DAYS", "7"))
     JWT_ACCESS_EXPIRATION_HOURS = int(os.getenv("JWT_ACCESS_EXPIRATION_HOURS", "1"))
     JWT_ALGORITHM = "HS256"

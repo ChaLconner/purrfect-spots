@@ -51,9 +51,16 @@ class TestUserService:
     @pytest.fixture
     async def user_service(self, mock_supabase, mock_supabase_admin):
         """Create UserService instance with mocked dependencies"""
-        with patch(
-            "app.services.user.base_mixin.get_admin_client_or_fallback",
-            new=AsyncMock(return_value=mock_supabase_admin),
+
+        async def isolated_login(email, password):
+            return await mock_supabase.auth.sign_in_with_password({"email": email, "password": password})
+
+        with (
+            patch(
+                "app.services.user.base_mixin.get_admin_client_or_fallback",
+                new=AsyncMock(return_value=mock_supabase_admin),
+            ),
+            patch("app.services.user.auth_mixin.sign_in_with_password_isolated", new=isolated_login),
         ):
             service = UserService(supabase_client=mock_supabase, supabase_admin=mock_supabase_admin)
             yield service

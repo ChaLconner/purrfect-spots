@@ -141,16 +141,19 @@ test.describe('Authentication Flow', () => {
       await expect(page.getByText('Weak', { exact: true })).toBeVisible();
     });
     
-    test('should successfully register user', async ({ page }) => {
+    test('should send a newly registered user to email verification', async ({ page }) => {
        // Mock register success
        await page.route('**/api/v1/auth/register', async route => {
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
             json: {
-                access_token: 'fake-jwt-token',
-                token_type: 'bearer',
-                user: mockUser
+                access_token: null,
+                token_type: null,
+                user: null,
+                requires_verification: true,
+                email: 'newuser@example.com',
+                message: 'If this address can be registered, a verification code will be sent.'
             }
         });
       });
@@ -163,12 +166,11 @@ test.describe('Authentication Flow', () => {
       await page.goto('/register');
       await page.getByLabel(/name/i).fill('Test User');
       await page.getByLabel(/email/i).fill('newuser@example.com');
-      await page.locator('#password').fill('SecurePass123');
+      await page.locator('#password').fill('secure-test-passphrase');
       
       await page.getByRole('button', { name: /register|sign up|create/i }).click();
       
-      // Should redirect after success
-      await expect(page).toHaveURL('/upload');
+      await expect(page).toHaveURL(/\/verify-email\?email=newuser@example\.com$/);
     });
   });
   

@@ -67,3 +67,23 @@ def test_upload_quota_reservation_migration_is_atomic_and_service_only() -> None
     assert "renew_upload_quota" in migration
     assert "AND expires_at > clock_timestamp()" in migration
     assert "DROP FUNCTION IF EXISTS public.increment_usage(uuid, date)" in migration
+
+
+def test_login_hardening_migration_enforces_identity_and_otp_consistency() -> None:
+    migration_path = (
+        Path(__file__).resolve().parents[3] / "supabase" / "migrations" / "20260914161305_harden_login_consistency.sql"
+    )
+    migration = migration_path.read_text(encoding="utf-8")
+
+    assert "ADD COLUMN IF NOT EXISTS locked_until timestamptz" in migration
+    assert "users_email_normalized_key" in migration
+    assert "ON public.users (lower(email))" in migration
+    assert "WITH CHECK ((SELECT auth.uid()) = id)" in migration
+    assert "REVOKE SELECT ON public.users FROM authenticated" in migration
+    assert "UPDATE public.email_verifications" in migration
+    assert "WHERE verified_at IS NULL" in migration
+    assert "email_verifications_pending_email_key" in migration
+    assert "CREATE OR REPLACE FUNCTION public.get_auth_user_by_email" in migration
+    assert "SECURITY DEFINER" in migration
+    assert "FROM PUBLIC, anon, authenticated" in migration
+    assert "TO service_role" in migration

@@ -41,6 +41,7 @@ describe('AdminUsers.vue', () => {
     setActivePinia(pinia);
 
     const authStore = useAuthStore();
+    authStore.isAuthenticated = true;
     authStore.user = {
       id: 'viewer-1',
       email: 'viewer@example.com',

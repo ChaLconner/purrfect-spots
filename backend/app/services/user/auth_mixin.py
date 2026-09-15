@@ -5,6 +5,7 @@ from app.schemas.user import User
 from app.services.password_service import password_service
 from app.services.user.base_mixin import UserBaseMixin
 from app.utils.exceptions import ConflictError, ExternalServiceError, PurrfectSpotsException
+from app.utils.supabase_client import sign_in_with_password_isolated
 
 logger = structlog.get_logger(__name__)
 
@@ -54,7 +55,7 @@ class UserAuthMixin(UserBaseMixin):
     async def authenticate_user(self, email: str, password: str) -> dict[str, Any] | None:
         """Authenticate user using Supabase Auth (Async)"""
         try:
-            res = await self.supabase.auth.sign_in_with_password({"email": email, "password": password})
+            res = await sign_in_with_password_isolated(email, password)
             if not res:
                 logger.error("Supabase returned None result for login", email=email)
                 return None
@@ -75,17 +76,19 @@ class UserAuthMixin(UserBaseMixin):
                     )
                     return user_dict
 
-                return {
-                    "id": res.user.id,
-                    "email": res.user.email,
-                    "name": res.user.user_metadata.get("name", ""),
-                    "picture": res.user.user_metadata.get("avatar_url", ""),
-                    "access_token": res.session.access_token,
-                    "refresh_token": res.session.refresh_token,
-                    "created_at": res.user.created_at,
-                    "permissions": [],
-                    "role": "user",
-                }
+                create_profile = getattr(self, "create_or_get_user", None)
+                if create_profile is None:
+                    logger.error("create_or_get_user is missing from UserService")
+                    return None
+                profile = await create_profile(
+                    {
+                        "id": res.user.id,
+                        "email": res.user.email,
+                        "name": res.user.user_metadata.get("name", ""),
+                        "picture": res.user.user_metadata.get("avatar_url", ""),
+                    }
+                )
+                return cast(dict[str, Any], profile.model_dump())
             return None
         except Exception as e:
             logger.error("Authentication failure", error=str(e), email=email)

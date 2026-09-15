@@ -8,7 +8,6 @@ from email.mime.text import MIMEText
 from app.logger import logger, sanitize_log_value
 
 WARN_SMTP_NOT_SET = "SMTP credentials not set. Skipping email send."
-DEBUG_SEPARATOR = "============================================"
 AUTOMATED_NOTIFICATION_FOOTER = "This is an automated notification."
 _email_executor = ThreadPoolExecutor(max_workers=5)
 
@@ -49,10 +48,7 @@ class EmailService:
         """Send password reset email"""
         if not self.smtp_user or not self.smtp_password:
             logger.warning(WARN_SMTP_NOT_SET)
-            logger.debug(DEBUG_SEPARATOR)
-            logger.debug(f"PASSWORD RESET LINK: {token}")
-            logger.debug(DEBUG_SEPARATOR)
-            return True
+            return False
 
         reset_link = token
         body = self._build_html_email(
@@ -70,10 +66,7 @@ class EmailService:
         """Send confirmation email for new signup"""
         if not self.smtp_user or not self.smtp_password:
             logger.warning(WARN_SMTP_NOT_SET)
-            logger.debug(DEBUG_SEPARATOR)
-            logger.debug(f"CONFIRMATION LINK: {confirmation_link}")
-            logger.debug(DEBUG_SEPARATOR)
-            return True
+            return False
 
         body = self._build_html_email(
             "Welcome to Purrfect Spots!",
@@ -93,12 +86,7 @@ class EmailService:
         """Send verification OTP code email"""
         if not self.smtp_user or not self.smtp_password:
             logger.warning(WARN_SMTP_NOT_SET)
-            logger.debug(DEBUG_SEPARATOR)
-            logger.debug(f"VERIFICATION OTP CODE: {otp_code}")
-            logger.debug("For email: %s", sanitize_log_value(to_email))
-            logger.debug(f"Expires in: {expires_minutes} minutes")
-            logger.debug(DEBUG_SEPARATOR)
-            return True
+            return False
 
         formatted_otp = " ".join(otp_code)
         body = f"""

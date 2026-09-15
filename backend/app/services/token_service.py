@@ -25,7 +25,7 @@ from app.runtime_environment import is_production_environment
 from app.services.redis_service import redis_service
 
 UTC_OFFSET_SUFFIX = "+00:00"
-from app.utils.datetime_utils import utc_now_iso
+from app.utils.datetime_utils import utc_now, utc_now_iso
 from app.utils.supabase_client import get_async_supabase_admin_client, has_supabase_service_role_key
 
 
@@ -158,7 +158,7 @@ class TokenService:
             return True
         if not has_supabase_service_role_key():
             logger.info("Skipping blacklist DB persistence because no service-role key is available in runtime.")
-            return bool(self._memory_blacklist.get(token_hash) or self.redis)
+            return not is_production_environment() and bool(self._memory_blacklist.get(token_hash) or self.redis)
 
         try:
             return await self._persist_blacklist_supabase(jti, user_id, expires_at)
@@ -167,7 +167,7 @@ class TokenService:
                 logger.warning("Skipping blacklist DB persistence due to token_blacklist RLS policy")
             else:
                 logger.error("Failed to persist blacklist to DB")
-            return bool(self._memory_blacklist.get(token_hash) or self.redis)
+            return not is_production_environment() and bool(self._memory_blacklist.get(token_hash) or self.redis)
 
     async def blacklist_token(
         self,
@@ -185,6 +185,48 @@ class TokenService:
         ttl = self._get_blacklist_ttl(ttl_seconds, expires_at)
         await self._cache_blacklisted_token(token_hash, ttl, reason)
         return await self._persist_blacklist(jti, user_id, expires_at, token_hash)
+
+    async def consume_refresh_token(self, jti: str, user_id: str, expires_at: datetime) -> bool:
+        """A unique database insert elects one rotation winner across workers.
+
+        Never fall back after an ambiguous write: the insert may have committed.
+        A duplicate or unavailable database must not mint another session.
+        """
+        try:
+            if self.db:
+                sql_result = await self.db.execute(
+                    text(
+                        "INSERT INTO token_blacklist (token_jti, user_id, expires_at, revoked_at) "
+                        "VALUES (:jti, :user_id, :expires_at, :revoked_at) "
+                        "ON CONFLICT (token_jti) DO NOTHING RETURNING token_jti"
+                    ),
+                    {"jti": jti, "user_id": user_id, "expires_at": expires_at, "revoked_at": datetime.now(UTC)},
+                )
+                consumed = sql_result.fetchone() is not None
+                await self.db.commit()
+            else:
+                admin = await self._get_admin_client()
+                api_response = (
+                    await admin.table("token_blacklist")
+                    .insert(
+                        {
+                            "token_jti": jti,
+                            "user_id": user_id,
+                            "expires_at": expires_at.isoformat(),
+                            "revoked_at": utc_now_iso(),
+                        }
+                    )
+                    .execute()
+                )
+                consumed = bool(api_response.data)
+            if consumed:
+                await self._cache_blacklisted_token(jti, self._get_blacklist_ttl(None, expires_at), "rotation")
+            return consumed
+        except Exception:
+            if self.db:
+                await self.db.rollback()
+            logger.warning("Refresh token consumption rejected or unavailable")
+            return False
 
     async def _check_redis_blacklist(self, token_hash: str) -> bool:
         """Check Redis blacklist."""
@@ -295,7 +337,8 @@ class TokenService:
     async def blacklist_all_user_tokens(self, user_id: str, reason: str = "security_event") -> int:
         """Invalidate all tokens for a user by setting a global revocation timestamp."""
         logger.debug("Global token revocation requested")
-        now_iso = utc_now_iso()
+        now = utc_now()
+        now_iso = now.isoformat()
 
         # 1. Update Fast Cache (Redis)
         if self.redis:
@@ -311,7 +354,7 @@ class TokenService:
         try:
             if self.db:
                 query = text("UPDATE users SET last_token_revocation_at = :now WHERE id = :u_id")
-                await self.db.execute(query, {"now": now_iso, "u_id": user_id})
+                await self.db.execute(query, {"now": now, "u_id": user_id})
                 await self.db.commit()
             else:
                 admin_client = await self._get_admin_client()

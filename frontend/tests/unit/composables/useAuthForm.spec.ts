@@ -33,7 +33,7 @@ vi.mock('@/utils/oauth', () => ({
   }),
 }));
 vi.mock('@/utils/security', () => ({
-  MIN_PASSWORD_LENGTH: 8,
+  MIN_PASSWORD_LENGTH: 15,
   getSafeRedirect: vi.fn((path: string | null, fallback: string) => path || fallback),
   redirectToTrustedExternalUrl: vi.fn(() => true),
 }));
@@ -123,7 +123,7 @@ describe('useAuthForm', () => {
       vm.form.password = 'short';
       
       await vm.handleSubmit();
-      expect(vm.formErrors.password).toBe('Password must be at least 8 characters');
+      expect(vm.formErrors.password).toBe('Password must be at least 15 characters');
       expect(AuthService.signup).not.toHaveBeenCalled();
     });
   });
@@ -134,7 +134,7 @@ describe('useAuthForm', () => {
       const vm = wrapper.vm;
 
       vm.form.email = 'test@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
       
       const mockAuthData = { 
         user: { name: 'Test User' }, 
@@ -174,7 +174,7 @@ describe('useAuthForm', () => {
       const vm = wrapper.vm;
 
       vm.form.email = 'ordered@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
 
       (AuthService.login as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
         user: { name: 'Ordered User' },
@@ -192,7 +192,7 @@ describe('useAuthForm', () => {
 
       vm.form.name = 'New User';
       vm.form.email = 'new@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
       
       const mockAuthData = { 
         user: { name: 'New User' }, 
@@ -214,7 +214,7 @@ describe('useAuthForm', () => {
 
       vm.form.name = 'New User';
       vm.form.email = 'verify@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
 
       (AuthService.signup as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
         requires_verification: true,
@@ -239,7 +239,7 @@ describe('useAuthForm', () => {
 
       vm.form.name = 'Legacy User';
       vm.form.email = 'legacy@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
 
       (AuthService.signup as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
         message: 'Account created',
@@ -256,7 +256,7 @@ describe('useAuthForm', () => {
       const vm = wrapper.vm;
 
       vm.form.email = 'test@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
       
       (AuthService.login as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Invalid credentials'));
 
@@ -271,7 +271,7 @@ describe('useAuthForm', () => {
       const vm = wrapper.vm;
 
       vm.form.email = 'test@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
 
       (AuthService.login as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('Request failed with status code 401')
@@ -290,7 +290,7 @@ describe('useAuthForm', () => {
       const vm = wrapper.vm;
 
       vm.form.email = 'test@example.com';
-      vm.form.password = 'password123';
+      vm.form.password = 'correct horse battery staple';
 
       (AuthService.login as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('Request failed with status code 503')

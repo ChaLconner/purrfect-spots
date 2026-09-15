@@ -62,7 +62,12 @@ class AuthService(AuthTokenMixin, AuthOAuthMixin, AuthPasswordMixin):
         return cast(dict[str, Any], await self.user_service.create_unverified_user(email, password, name))
 
     async def get_user_by_email_unverified(self, email: str) -> dict[str, Any] | None:
-        return cast(dict[str, Any] | None, await self.user_service.get_user_by_email(email))
+        """Read the Auth identity; unconfirmed users have no public profile yet."""
+        admin = await self._get_admin_client()
+        result = await admin.rpc("get_auth_user_by_email", {"p_email": email.strip().lower()}).execute()
+        if not isinstance(result.data, list) or not result.data:
+            return None
+        return cast(dict[str, Any], result.data[0])
 
     async def get_user_by_id(self, user_id: str) -> User | None:
         return cast("User | None", await self.user_service.get_user_by_id(user_id))
@@ -73,7 +78,7 @@ class AuthService(AuthTokenMixin, AuthOAuthMixin, AuthPasswordMixin):
     async def confirm_user_email(self, email: str) -> bool:
         """Confirm user email via Admin Client (Async)"""
         try:
-            user = await self.user_service.get_user_by_email(email)
+            user = await self.get_user_by_email_unverified(email)
             if not user or "id" not in user:
                 return False
             admin = await self._get_admin_client()

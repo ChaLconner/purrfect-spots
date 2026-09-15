@@ -5,6 +5,8 @@ Tests for rate limiter functionality
 # These are private/test IPs used only for unit testing rate limiting, not real addresses
 """
 
+import time
+import uuid
 from unittest.mock import MagicMock, patch
 
 import jwt
@@ -32,7 +34,15 @@ class TestRateLimiterKeyFunctions:
         # Patch config.JWT_SECRET to match the token's secret
         with patch("app.config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
             test_token = jwt.encode(
-                {"sub": "user-123", "iss": "purrfect-spots"},
+                {
+                    "sub": "user-123",
+                    "iss": "purrfect-spots",
+                    "aud": "purrfect-spots-api",
+                    "exp": int(time.time()) + 60,
+                    "iat": int(time.time()),
+                    "jti": str(uuid.uuid4()),
+                    "type": "access",
+                },
                 "secret_key_at_least_32_chars_long_for_security",
                 algorithm="HS256",
             )
@@ -49,7 +59,16 @@ class TestRateLimiterKeyFunctions:
         # Patch config.JWT_SECRET to match the token's secret
         with patch("app.config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
             test_token = jwt.encode(
-                {"user_id": "user-456", "iss": "purrfect-spots"},
+                {
+                    "sub": "user-456",
+                    "user_id": "user-456",
+                    "iss": "purrfect-spots",
+                    "aud": "purrfect-spots-api",
+                    "exp": int(time.time()) + 60,
+                    "iat": int(time.time()),
+                    "jti": str(uuid.uuid4()),
+                    "type": "access",
+                },
                 "secret_key_at_least_32_chars_long_for_security",
                 algorithm="HS256",
             )
@@ -273,7 +292,16 @@ class TestTieredRateLimiting:
         """Test extracting pro tier from valid JWT token"""
         with patch("app.config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
             test_token = jwt.encode(
-                {"sub": "user-123", "app_metadata": {"tier": "pro"}, "iss": "purrfect-spots"},
+                {
+                    "sub": "user-123",
+                    "app_metadata": {"tier": "pro"},
+                    "iss": "purrfect-spots",
+                    "aud": "purrfect-spots-api",
+                    "exp": int(time.time()) + 60,
+                    "iat": int(time.time()),
+                    "jti": str(uuid.uuid4()),
+                    "type": "access",
+                },
                 "secret_key_at_least_32_chars_long_for_security",
                 algorithm="HS256",
             )
@@ -286,7 +314,16 @@ class TestTieredRateLimiting:
         """Test extracting free tier from valid JWT token"""
         with patch("app.config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
             test_token = jwt.encode(
-                {"sub": "user-123", "app_metadata": {"tier": "free"}, "iss": "purrfect-spots"},
+                {
+                    "sub": "user-123",
+                    "app_metadata": {"tier": "free"},
+                    "iss": "purrfect-spots",
+                    "aud": "purrfect-spots-api",
+                    "exp": int(time.time()) + 60,
+                    "iat": int(time.time()),
+                    "jti": str(uuid.uuid4()),
+                    "type": "access",
+                },
                 "secret_key_at_least_32_chars_long_for_security",
                 algorithm="HS256",
             )
@@ -298,7 +335,16 @@ class TestTieredRateLimiting:
     def test_get_user_tier_reads_top_level_custom_claim(self, mock_request) -> None:
         with patch("app.config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
             test_token = jwt.encode(
-                {"sub": "user-123", "tier": "pro"},
+                {
+                    "sub": "user-123",
+                    "tier": "pro",
+                    "iss": "purrfect-spots",
+                    "aud": "purrfect-spots-api",
+                    "exp": int(time.time()) + 60,
+                    "iat": int(time.time()),
+                    "jti": str(uuid.uuid4()),
+                    "type": "access",
+                },
                 "secret_key_at_least_32_chars_long_for_security",
                 algorithm="HS256",
             )

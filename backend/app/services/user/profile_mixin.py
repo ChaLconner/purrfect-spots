@@ -22,6 +22,10 @@ class UserProfileMixin(UserBaseMixin):
             if not user_id:
                 raise ValueError("Missing user_id (sub) in user_data")
 
+            existing_user = await self.get_user_by_id(str(user_id))
+            if existing_user:
+                return existing_user
+
             user_record = self._prepare_user_record(user_data, user_id)
 
             if self.db:

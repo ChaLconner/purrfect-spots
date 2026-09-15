@@ -148,7 +148,7 @@ export function openTrustedExternalUrl(url: string, allowedHosts?: Iterable<stri
 // ==============================================================================
 
 /** Minimum length accepted for new and changed passwords. */
-export const MIN_PASSWORD_LENGTH = 8;
+export const MIN_PASSWORD_LENGTH = 15;
 
 /**
  * Validate email format

@@ -190,21 +190,21 @@ describe('security utils', () => {
 
   describe('validatePassword', () => {
     it.each([
-      ['strong passwords', 'Password1'],
-      ['eight-character passphrases', 'Pass1234'],
-      ['missing uppercase letters because strength is advisory', 'password1'],
-      ['missing lowercase letters because strength is advisory', 'PASSWORD1'],
-      ['missing numbers because strength is advisory', 'Password'],
+      ['strong passwords', 'LongPassword123'],
+      ['fifteen-character passphrases', '123456789012345'],
+      ['missing uppercase letters because strength is advisory', 'longpassword1234'],
+      ['missing lowercase letters because strength is advisory', 'LONGPASSWORD1234'],
+      ['missing numbers because strength is advisory', 'LongPasswordOnly'],
     ])('accepts %s', (_caseName, password) => {
       const result = validatePassword(password);
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
-    it('rejects passwords shorter than eight characters', () => {
+    it('rejects passwords shorter than fifteen characters', () => {
       const result = validatePassword('Pass123');
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Password must be at least 8 characters');
+      expect(result.errors).toContain('Password must be at least 15 characters');
     });
 
     it('still requires a non-empty password', () => {

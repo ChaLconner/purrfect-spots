@@ -2623,7 +2623,7 @@ export interface components {
             current_password: string;
             /**
              * New Password
-             * @description Password must be at least 8 characters
+             * @description Password must be at least 15 characters
              */
             new_password: string;
         };
@@ -3167,7 +3167,7 @@ export interface components {
             email: string;
             /**
              * Password
-             * @description Password must be at least 8 characters
+             * @description Password must be at least 15 characters
              */
             password: string;
             /**
@@ -3258,7 +3258,7 @@ export interface components {
             token: string;
             /**
              * New Password
-             * @description Password must be at least 8 characters
+             * @description Password must be at least 15 characters
              */
             new_password: string;
         };
@@ -3309,8 +3309,6 @@ export interface components {
         SessionExchangeRequest: {
             /** Access Token */
             access_token: string;
-            /** Refresh Token */
-            refresh_token: string;
         };
         /**
          * SortField

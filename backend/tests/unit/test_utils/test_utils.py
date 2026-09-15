@@ -353,14 +353,24 @@ class TestRateLimiter:
 
     def test_get_user_id_from_request_authenticated(self) -> None:
         """Test user ID extraction from authenticated request"""
+        # Create a valid JWT token for testing
+        import time
+
         import jwt
 
         from app.limiter import get_user_id_from_request
 
-        # Create a valid JWT token for testing
         with patch("app.config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
             token = jwt.encode(
-                {"sub": "user-123", "iss": "purrfect-spots"},
+                {
+                    "sub": "user-123",
+                    "iss": "purrfect-spots",
+                    "aud": "purrfect-spots-api",
+                    "exp": int(time.time()) + 60,
+                    "iat": int(time.time()),
+                    "jti": "test-jti",
+                    "type": "access",
+                },
                 "secret_key_at_least_32_chars_long_for_security",
                 algorithm="HS256",
             )
@@ -399,12 +409,23 @@ class TestAuthUtils:
 
     def test_decode_token_valid(self) -> None:
         """Test decoding valid token"""
+        import time
+
         import jwt
 
         from app.utils.auth_utils import decode_token
 
         secret = "test_secret_key_at_least_32_chars"  # pragma: allowlist secret
-        payload = {"sub": "user123"}
+        now = int(time.time())
+        payload = {
+            "sub": "user123",
+            "iss": "purrfect-spots",
+            "aud": "purrfect-spots-api",
+            "exp": now + 60,
+            "iat": now,
+            "jti": "test-jti",
+            "type": "access",
+        }
         token = jwt.encode(payload, secret, algorithm="HS256")
 
         with patch("app.config.config.JWT_SECRET", secret):
@@ -420,7 +441,15 @@ class TestAuthUtils:
         from app.utils.auth_utils import decode_token
 
         secret = "test_secret_key_at_least_32_chars"  # pragma: allowlist secret
-        payload = {"sub": "user123", "exp": int(time.time()) - 3600}
+        payload = {
+            "sub": "user123",
+            "iss": "purrfect-spots",
+            "aud": "purrfect-spots-api",
+            "exp": int(time.time()) - 3600,
+            "iat": int(time.time()) - 7200,
+            "jti": "test-jti",
+            "type": "access",
+        }
         token = jwt.encode(payload, secret, algorithm="HS256")
 
         with patch("app.config.config.JWT_SECRET", secret), pytest.raises(ValueError, match="Token has expired"):

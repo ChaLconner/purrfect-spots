@@ -5,11 +5,13 @@ import pytest
 
 from app.config import config
 from app.middleware.csrf_middleware import CSRFMiddleware
+from app.schemas.user import User
 from app.services.otp_service import OTPService
 from app.services.redis_service import redis_service
 from app.services.subscription_service import SubscriptionService
 from app.services.treats_service import TreatsService
 from app.services.user_service import UserService
+from app.utils.datetime_utils import utc_now
 
 
 @pytest.fixture
@@ -355,7 +357,9 @@ async def test_user_profile_mixin_create_sql(mock_supabase, mock_db):
 
     user_data = {"id": "u1", "email": "new@test.com", "name": "NewUser"}
 
-    # Mock check_row, upsert, get_user_by_id (two calls: user select and perm select)
+    # Mock initial lookup, role check, upsert, final lookup, and permissions.
+    empty = MagicMock()
+    empty.fetchone.return_value = None
     r1 = MagicMock()
     r1.fetchone.return_value = [1]
 
@@ -372,7 +376,7 @@ async def test_user_profile_mixin_create_sql(mock_supabase, mock_db):
     # We need to reach the return user in create_or_get_user
     # Note: get_user_by_id is called inside.
     # We'll use side_effect for the sequence of db.execute calls.
-    mock_db.execute.side_effect = [r1, r2, r3, r4]
+    mock_db.execute.side_effect = [empty, r1, r2, r3, r4]
 
     user = await service.create_or_get_user(user_data)
     assert user.id == "u1"
@@ -390,11 +394,13 @@ async def test_user_auth_mixin_sql(mock_supabase, mock_db):
     mock_res.session.access_token = "atk"
     mock_res.session.refresh_token = "rtk"
 
-    mock_supabase.auth.sign_in_with_password = AsyncMock(return_value=mock_res)
-    service.get_user_by_id = AsyncMock(return_value=None)  # type: ignore[method-assign]
-
-    user_data = await service.authenticate_user("test@test.com", "password")
+    get_user = AsyncMock(side_effect=[None, User(id="u1", email="test@test.com", name="Test", created_at=utc_now())])
+    with (
+        patch.object(service, "get_user_by_id", new=get_user),
+        patch("app.services.user.auth_mixin.sign_in_with_password_isolated", new=AsyncMock(return_value=mock_res)),
+    ):
+        user_data = await service.authenticate_user("test@test.com", "password")
     assert user_data is not None
     assert user_data["id"] == "u1"
-    assert user_data["access_token"] == "atk"
+    assert "access_token" not in user_data
     # End of file

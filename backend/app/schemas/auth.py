@@ -1,24 +1,32 @@
 from typing import Any
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.constants.security import MIN_PASSWORD_LENGTH
 from app.schemas.user import UserResponse
 
 
-class RegisterInput(BaseModel):
+class EmailInput(BaseModel):
     email: EmailStr
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return value.lower()
+
+
+class RegisterInput(EmailInput):
     password: str = Field(
         ...,
         min_length=MIN_PASSWORD_LENGTH,
+        max_length=1024,
         description=f"Password must be at least {MIN_PASSWORD_LENGTH} characters",
     )
-    name: str = Field(..., min_length=1, description="Please enter first and last name")
+    name: str = Field(..., min_length=1, max_length=100, description="Please enter first and last name")
 
 
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
+class LoginRequest(EmailInput):
+    password: str = Field(..., min_length=1, max_length=1024)
 
 
 class LoginResponse(BaseModel):
@@ -30,13 +38,12 @@ class LoginResponse(BaseModel):
     email: str | None = None
 
 
-class VerifyOTPRequest(BaseModel):
-    email: EmailStr
-    otp: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$", description="6-digit OTP code")
+class VerifyOTPRequest(EmailInput):
+    otp: str = Field(..., min_length=6, max_length=6, pattern=r"^[0-9]{6}$", description="6-digit OTP code")
 
 
-class ResendOTPRequest(BaseModel):
-    email: EmailStr
+class ResendOTPRequest(EmailInput):
+    pass
 
 
 class ResendOTPResponse(BaseModel):
@@ -44,28 +51,28 @@ class ResendOTPResponse(BaseModel):
     expires_at: str | None = None
 
 
-class ForgotPasswordRequest(BaseModel):
-    email: EmailStr
+class ForgotPasswordRequest(EmailInput):
+    pass
 
 
 class ResetPasswordRequest(BaseModel):
-    token: str
+    token: str = Field(..., min_length=1, max_length=16384)
     new_password: str = Field(
         ...,
         min_length=MIN_PASSWORD_LENGTH,
+        max_length=1024,
         description=f"Password must be at least {MIN_PASSWORD_LENGTH} characters",
     )
 
 
 class SessionExchangeRequest(BaseModel):
-    access_token: str
-    refresh_token: str
+    access_token: str = Field(..., min_length=1, max_length=16384)
 
 
 class GoogleCodeExchangeRequest(BaseModel):
-    code: str
-    code_verifier: str
-    redirect_uri: str
+    code: str = Field(..., max_length=4096)
+    code_verifier: str = Field(..., max_length=128)
+    redirect_uri: str = Field(..., max_length=2048)
 
 
 class SyncUserResponse(BaseModel):

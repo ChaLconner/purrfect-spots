@@ -24,7 +24,7 @@ export class AuthService {
   }
 
   // Resend OTP code
-  static async resendOtp(email: string): Promise<{ message: string; expires_at: string }> {
+  static async resendOtp(email: string): Promise<{ message: string }> {
     return await apiV1.post('/auth/resend-otp', { email });
   }
 

@@ -160,11 +160,11 @@ async def test_decode_supabase_token_success(mock_env, mock_jwks_response):
 
         with (
             patch("jwt.get_unverified_header") as mock_header,
-            patch("jwt.algorithms.RSAAlgorithm.from_jwk") as mock_algo,
+            patch("app.middleware.auth_middleware.PyJWK.from_dict") as mock_algo,
             patch("jwt.decode") as mock_decode,
         ):
-            mock_header.return_value = {"kid": "key1"}
-            mock_algo.return_value = "public_key_obj"
+            mock_header.return_value = {"kid": "key1", "alg": "RS256"}
+            mock_algo.return_value.key = "public_key_obj"
             mock_decode.return_value = {"sub": "00000000-0000-4000-a000-000000000123", "aud": "authenticated"}
             payload = await decode_supabase_token("valid_token")
             assert payload["sub"] == "00000000-0000-4000-a000-000000000123"
@@ -189,7 +189,7 @@ async def test_decode_supabase_token_missing_kid(mock_env, mock_jwks_response):
             with pytest.raises(HTTPException) as exc:
                 await decode_supabase_token("token")
             assert exc.value.status_code == 401
-            assert "missing 'kid'" in exc.value.detail
+            assert exc.value.detail == "Invalid Supabase token"
 
 
 # Removed tests for decode_custom_token as it was replaced by auth_utils.decode_token
@@ -465,22 +465,30 @@ async def test_get_user_from_payload_blocks_banned_user(mock_env):
 
 @pytest.mark.asyncio
 async def test_verify_and_decode_token_supabase_ok(mock_env):
-    with patch("app.middleware.auth_middleware.decode_supabase_token", new_callable=AsyncMock) as mock_supa:
-        mock_supa.return_value = {"sub": "123"}
+    service = AsyncMock()
+    service.is_user_invalidated.return_value = False
+    with (
+        patch("app.middleware.auth_middleware.decode_supabase_token", new_callable=AsyncMock) as mock_supa,
+        patch("app.middleware.auth_middleware.get_token_service", new=AsyncMock(return_value=service)),
+    ):
+        mock_supa.return_value = {"sub": "123", "iat": 1}
         payload, source = await _verify_and_decode_token("token")
-        assert payload == {"sub": "123"}
+        assert payload == {"sub": "123", "iat": 1}
         assert source == "supabase"
 
 
 @pytest.mark.asyncio
 async def test_verify_and_decode_token_fallback_custom(mock_env):
+    service = AsyncMock()
+    service.is_user_invalidated.return_value = False
     with (
         patch("app.middleware.auth_middleware.decode_supabase_token", side_effect=ValueError),
         patch("app.middleware.auth_middleware.decode_token") as mock_cust,
+        patch("app.middleware.auth_middleware.get_token_service", new=AsyncMock(return_value=service)),
     ):
-        mock_cust.return_value = {"sub": "456"}
+        mock_cust.return_value = {"sub": "456", "iat": 1}
         payload, source = await _verify_and_decode_token("token")
-        assert payload == {"sub": "456"}
+        assert payload == {"sub": "456", "iat": 1}
         assert source == "custom"
 
 

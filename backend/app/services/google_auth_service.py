@@ -6,6 +6,8 @@ Handles Google OAuth 2.0 flow:
 - Exchanging auth codes for tokens via PKCE
 """
 
+import asyncio
+
 from google.auth.transport import requests
 from google.oauth2 import id_token
 
@@ -27,6 +29,8 @@ class GoogleAuthService:
     def verify_google_token(self, token: str) -> dict:
         """Verify Google OAuth token and return user info"""
         try:
+            if not self.google_client_id:
+                raise ValueError("Google sign-in is not configured")
             idinfo = id_token.verify_oauth2_token(
                 token,
                 requests.Request(),
@@ -40,10 +44,15 @@ class GoogleAuthService:
             ]:
                 raise ValueError("Wrong issuer.")
 
+            if idinfo.get("email_verified") is not True:
+                raise ValueError("Google email is not verified")
+            email = idinfo["email"].strip().lower()
+
             return {
                 "google_id": idinfo["sub"],
-                "email": idinfo["email"],
-                "name": idinfo["name"],
+                "email": email,
+                "email_authoritative": email.endswith("@gmail.com") or bool(idinfo.get("hd")),
+                "name": idinfo.get("name", ""),
                 "picture": idinfo.get("picture", ""),
             }
         except ValueError as e:
@@ -74,8 +83,8 @@ class GoogleAuthService:
             response = await client.post(token_url, data=data, headers=headers, timeout=10.0)
 
             if response.status_code != 200:
-                logger.warning(f"[OAuth] External exchange unsuccessful: {response.status_code} - {response.text}")
-                raise ValueError(f"Token exchange failed: {response.text}")
+                logger.warning("[OAuth] External exchange unsuccessful: %s", response.status_code)
+                raise ValueError("Google authorization code is invalid or expired")
 
             token_data = response.json()
             access_token = token_data.get("access_token")
@@ -86,22 +95,12 @@ class GoogleAuthService:
                 raise ValueError("Missing tokens in response")
 
             # Verify ID token
-            idinfo = id_token.verify_oauth2_token(
-                id_token_str,
-                requests.Request(),
-                self.google_client_id,
-                clock_skew_in_seconds=10,
-            )
+            user_info = await asyncio.to_thread(self.verify_google_token, id_token_str)
 
             return {
                 "access_token": access_token,
                 "id_token": id_token_str,
-                "user_info": {
-                    "google_id": idinfo["sub"],
-                    "email": idinfo["email"],
-                    "name": idinfo["name"],
-                    "picture": idinfo.get("picture", ""),
-                },
+                "user_info": user_info,
             }
 
         except ValueError as e:

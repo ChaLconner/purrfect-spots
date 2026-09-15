@@ -27,6 +27,7 @@ vi.mock('vue-i18n', () => ({
 describe('AdminLayout.vue', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    useAuthStore().isAuthenticated = true;
     vi.clearAllMocks();
     adminStats.pending_reports = 0;
   });

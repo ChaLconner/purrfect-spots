@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import jwt
@@ -24,7 +24,7 @@ class AuthTokenMixin(AuthBaseMixin):
         if not jti:
             return False
         try:
-            token_service = await get_token_service()
+            token_service = await get_token_service(self.db)
             return await token_service.is_blacklisted(jti=jti)
         except Exception as e:
             logger.error("Failed to check revocation status: %s", e)
@@ -40,6 +40,13 @@ class AuthTokenMixin(AuthBaseMixin):
         except Exception as e:
             logger.error("Failed to revoke session: %s", e)
             return False
+
+    async def consume_refresh_token(self, payload: dict[str, Any]) -> bool:
+        """Atomically consume a refresh token before issuing its replacement."""
+        token_service = await get_token_service(self.db)
+        return await token_service.consume_refresh_token(
+            payload["jti"], payload["sub"], datetime.fromtimestamp(payload["exp"], UTC)
+        )
 
     def create_access_token(
         self,
@@ -62,6 +69,9 @@ class AuthTokenMixin(AuthBaseMixin):
             "jti": jti,
             "exp": int(expire.timestamp()),
             "iat": int(utc_now().timestamp()),
+            "type": "access",
+            "iss": "purrfect-spots",
+            "aud": "purrfect-spots-api",
         }
         if user_data:
             to_encode.update(
@@ -83,7 +93,16 @@ class AuthTokenMixin(AuthBaseMixin):
     def verify_access_token(self, token: str) -> str | None:
         """Verify access token and return user_id."""
         try:
-            payload = jwt.decode(token, self.jwt_secret, algorithms=[self.jwt_algorithm])
+            payload = jwt.decode(
+                token,
+                self.jwt_secret,
+                algorithms=[self.jwt_algorithm],
+                audience="purrfect-spots-api",
+                issuer="purrfect-spots",
+                options={"require": ["exp", "iat", "sub", "jti", "type"]},
+            )
+            if payload.get("type") != "access":
+                return None
             return payload.get("sub") or payload.get("user_id")
         except Exception as e:
             logger.debug(f"Token verification failed: {e}")
@@ -100,6 +119,8 @@ class AuthTokenMixin(AuthBaseMixin):
             "exp": int(expire.timestamp()),
             "iat": int(utc_now().timestamp()),
             "type": "refresh",
+            "iss": "purrfect-spots",
+            "aud": "purrfect-spots-refresh",
         }
         if ip or user_agent:
             to_encode["fingerprint"] = self._generate_fingerprint(ip or "", user_agent or "")
@@ -110,12 +131,25 @@ class AuthTokenMixin(AuthBaseMixin):
     ) -> dict[str, Any] | None:
         """Verify refresh token (Async)."""
         try:
-            payload = jwt.decode(token, cast(str, config.JWT_REFRESH_SECRET), algorithms=[self.jwt_algorithm])
+            payload = jwt.decode(
+                token,
+                cast(str, config.JWT_REFRESH_SECRET),
+                algorithms=[self.jwt_algorithm],
+                audience="purrfect-spots-refresh",
+                issuer="purrfect-spots",
+                options={"require": ["exp", "iat", "sub", "user_id", "jti", "type"]},
+            )
             if payload.get("type") != "refresh":
+                return None
+            if not payload["jti"] or not payload["sub"] or payload["sub"] != payload["user_id"]:
                 return None
 
             jti = payload.get("jti")
             if jti and await self.is_token_revoked(jti):
+                return None
+
+            token_service = await get_token_service(self.db)
+            if await token_service.is_user_invalidated(payload["sub"], datetime.fromtimestamp(payload["iat"], UTC)):
                 return None
 
             token_fingerprint = payload.get("fingerprint")

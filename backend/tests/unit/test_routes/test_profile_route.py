@@ -219,7 +219,10 @@ class TestProfileRoute:
             }
         )
 
-        payload: dict[str, str] = {"current_password": "old_password", "new_password": "new_password"}
+        payload: dict[str, str] = {
+            "current_password": "old_password",
+            "new_password": "new-password-passphrase",
+        }
         response = await client.put("/api/v1/profile/password", json=payload)
 
         app.dependency_overrides.clear()
@@ -240,7 +243,10 @@ class TestProfileRoute:
             }
         )
 
-        payload: dict[str, str] = {"current_password": "wrong_password", "new_password": "new_password"}
+        payload: dict[str, str] = {
+            "current_password": "wrong_password",
+            "new_password": "new-password-passphrase",
+        }
         response = await client.put("/api/v1/profile/password", json=payload)
 
         app.dependency_overrides.clear()

@@ -6484,9 +6484,9 @@
           },
           "new_password": {
             "type": "string",
-            "minLength": 8,
+            "minLength": 15,
             "title": "New Password",
-            "description": "Password must be at least 8 characters"
+            "description": "Password must be at least 15 characters"
           }
         },
         "type": "object",
@@ -8008,9 +8008,9 @@
           },
           "password": {
             "type": "string",
-            "minLength": 8,
+            "minLength": 15,
             "title": "Password",
-            "description": "Password must be at least 8 characters"
+            "description": "Password must be at least 15 characters"
           },
           "name": {
             "type": "string",
@@ -8241,9 +8241,9 @@
           },
           "new_password": {
             "type": "string",
-            "minLength": 8,
+            "minLength": 15,
             "title": "New Password",
-            "description": "Password must be at least 8 characters"
+            "description": "Password must be at least 15 characters"
           }
         },
         "type": "object",
@@ -8394,16 +8394,11 @@
           "access_token": {
             "type": "string",
             "title": "Access Token"
-          },
-          "refresh_token": {
-            "type": "string",
-            "title": "Refresh Token"
           }
         },
         "type": "object",
         "required": [
-          "access_token",
-          "refresh_token"
+          "access_token"
         ],
         "title": "SessionExchangeRequest"
       },

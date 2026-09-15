@@ -5,7 +5,7 @@ Tests for Password Service
 # These are not real credentials; they are used only for unit testing password hashing
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -45,20 +45,21 @@ class TestPasswordService:
     def test_validate_complexity(self) -> None:
         """Validate the minimum length without imposing character classes."""
         assert password_service.validate_complexity("short") is False
-        assert password_service.validate_complexity("12345678") is True
-        assert password_service.validate_complexity("passphrase") is True
+        assert password_service.validate_complexity("12345678901234") is False
+        assert password_service.validate_complexity("123456789012345") is True
 
     @pytest.mark.asyncio
     async def test_is_password_pwned_leaked(self):
         """Test HIBP check for leaked password"""
-        password = "password123"
-        suffix = "C6008F9CAB4083784CBD1874F76618D2A97"
+        password = "correct horse battery staple"
+        suffix = "AD6438836DBE526AA231ABDE2D0EEF74D42"
 
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.text = f"{suffix}:1234\nOTHER:1"
 
-        with patch("httpx.AsyncClient.get", return_value=mock_response):
+        client = MagicMock(get=AsyncMock(return_value=mock_response))
+        with patch("app.services.password_service.get_shared_httpx_client", return_value=client):
             result = await password_service.is_password_pwned(password)
             assert result is True
 
@@ -71,31 +72,33 @@ class TestPasswordService:
         mock_response.status_code = 200
         mock_response.text = "NOT_YOUR_SUFFIX:1"
 
-        with patch("httpx.AsyncClient.get", return_value=mock_response):
+        client = MagicMock(get=AsyncMock(return_value=mock_response))
+        with patch("app.services.password_service.get_shared_httpx_client", return_value=client):
             result = await password_service.is_password_pwned(password)
             assert result is False
 
     @pytest.mark.asyncio
     async def test_is_password_pwned_error(self):
         """Test HIBP check with API error"""
-        with patch("httpx.AsyncClient.get", side_effect=Exception("API Down")):
+        client = MagicMock(get=AsyncMock(side_effect=Exception("API Down")))
+        with patch("app.services.password_service.get_shared_httpx_client", return_value=client):
             result = await password_service.is_password_pwned("password123")
             assert result is False  # Should fail safe (not blocked)
 
     @pytest.mark.asyncio
     async def test_validate_new_password_rejects_password_shorter_than_minimum(self):
-        """New passwords shorter than eight characters are rejected."""
+        """New passwords shorter than fifteen characters are rejected."""
         with patch.object(password_service, "is_password_pwned", return_value=False):
             is_valid, error = await password_service.validate_new_password("short")
 
         assert is_valid is False
-        assert error == "Password must be at least 8 characters."
+        assert error == "Password must be at least 15 characters."
 
     @pytest.mark.asyncio
-    async def test_validate_new_password_accepts_eight_character_passphrase(self):
-        """Exactly eight characters is the inclusive minimum."""
+    async def test_validate_new_password_accepts_fifteen_character_passphrase(self):
+        """Exactly fifteen characters is the inclusive minimum."""
         with patch.object(password_service, "is_password_pwned", return_value=False):
-            is_valid, error = await password_service.validate_new_password("12345678")
+            is_valid, error = await password_service.validate_new_password("123456789012345")
 
         assert is_valid is True
         assert error is None
@@ -112,7 +115,7 @@ class TestPasswordService:
     async def test_validate_new_password_pwned(self):
         """Test new password validation with leaked password"""
         with patch.object(password_service, "is_password_pwned", return_value=True):
-            is_valid, error = await password_service.validate_new_password("PwnedPass123!")
+            is_valid, error = await password_service.validate_new_password("PwnedPassphrase123!")
             assert is_valid is False
             assert error is not None
             assert "data breach" in error
@@ -121,6 +124,6 @@ class TestPasswordService:
     async def test_validate_new_password_success(self):
         """Test new password validation success"""
         with patch.object(password_service, "is_password_pwned", return_value=False):
-            is_valid, error = await password_service.validate_new_password("SecurePass123!")
+            is_valid, error = await password_service.validate_new_password("secure-test-passphrase")
             assert is_valid is True
             assert error is None

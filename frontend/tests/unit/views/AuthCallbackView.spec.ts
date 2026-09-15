@@ -63,6 +63,7 @@ describe('AuthCallback.vue', () => {
     Object.defineProperty(globalThis, 'location', {
       value: {
         hash: '',
+        pathname: '/auth/callback',
       },
       writable: true,
       configurable: true,
@@ -93,7 +94,6 @@ describe('AuthCallback.vue', () => {
 
     expect(mockSessionExchange).toHaveBeenCalledWith('/auth/session-exchange', {
       access_token: validAccessToken,
-      refresh_token: validRefreshToken,
     });
     expect(mockSetAuth).toHaveBeenCalled();
     expect(mockPush).toHaveBeenCalledWith('/my-reports');
@@ -125,12 +125,15 @@ describe('AuthCallback.vue', () => {
     mount(AuthCallback);
     await flushPromises();
 
+    expect(mockSessionExchange).not.toHaveBeenCalled();
+    expect(mockSetAuth).not.toHaveBeenCalled();
     expect(showSuccess).toHaveBeenCalledWith('auth.callback.passwordResetVerified');
     expect(mockPush).toHaveBeenCalledWith('/reset-password');
   });
 
   it('exchanges Google callbacks and tolerates user-sync failures', async () => {
-    mockRoute.query = { code: 'google-code' };
+    mockRoute.query = { code: 'google-code', state: 'expected-state' };
+    sessionStorage.setItem('google_oauth_state', 'expected-state');
     sessionStorage.setItem('google_code_verifier', 'verifier');
     vi.mocked(AuthService.googleCodeExchange).mockResolvedValue({
       access_token: 'session-token',
@@ -148,7 +151,8 @@ describe('AuthCallback.vue', () => {
   });
 
   it('reports missing Google callback credentials', async () => {
-    mockRoute.query = { code: 'google-code' };
+    mockRoute.query = { code: 'google-code', state: 'expected-state' };
+    sessionStorage.setItem('google_oauth_state', 'expected-state');
 
     mount(AuthCallback);
     await flushPromises();
@@ -184,6 +188,17 @@ describe('AuthCallback.vue', () => {
       'auth.callback.extensionError',
       'auth.callback.loginErrorTitle'
     );
+  });
+
+  it.each([undefined, 'wrong-state'])('rejects missing or mismatched OAuth state: %s', async (state) => {
+    mockRoute.query = { code: 'google-code', ...(state ? { state } : {}) };
+    sessionStorage.setItem('google_oauth_state', 'expected-state');
+    sessionStorage.setItem('google_code_verifier', 'verifier');
+    mount(AuthCallback);
+    await flushPromises();
+    expect(AuthService.googleCodeExchange).not.toHaveBeenCalled();
+    expect(mockSetAuth).not.toHaveBeenCalled();
+    expect(showError).toHaveBeenCalledWith('auth.callback.invalidOauth', 'auth.callback.loginFailedTitle');
   });
 
   it('decodes plus signs in OAuth error descriptions', async () => {

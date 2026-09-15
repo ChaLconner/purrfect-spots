@@ -149,9 +149,10 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login'): UseAut
 
       const redirectUri = `${globalThis.location.origin}/auth/callback`;
       const { getGoogleAuthUrl } = await import('@/utils/oauth');
-      const { url, codeVerifier } = await getGoogleAuthUrl(googleClientId, redirectUri);
+      const { url, codeVerifier, state } = await getGoogleAuthUrl(googleClientId, redirectUri);
 
       globalThis.sessionStorage.setItem('google_code_verifier', codeVerifier);
+      globalThis.sessionStorage.setItem('google_oauth_state', state);
       if (!redirectToTrustedExternalUrl(url)) {
         throw new Error('Google sign-in redirect was blocked due to an unexpected destination.');
       }

@@ -76,6 +76,8 @@ import AuthLayout from '@/components/auth/AuthLayout.vue';
 import { BaseButton, BaseInput } from '@/components/ui';
 import { useSeo } from '@/composables/useSeo';
 import { MIN_PASSWORD_LENGTH } from '@/utils/security';
+import { useAuthStore } from '@/stores/authStore';
+import { takeRecoveryToken } from '@/utils/recoverySession';
 
 const route = useRoute();
 const router = useRouter();
@@ -116,7 +118,8 @@ onMounted(() => {
   }
 
   const queryToken = route.query.token as string;
-  token.value = accessToken || queryToken;
+  token.value = accessToken || queryToken || takeRecoveryToken() || '';
+  globalThis.history.replaceState(globalThis.history.state, '', globalThis.location.pathname);
 
   if (!token.value) {
     showError(t('auth.invalidToken'), t('common.error'));
@@ -140,6 +143,7 @@ const handleSubmit = async (): Promise<void> => {
       token: token.value,
       new_password: password.value,
     });
+    useAuthStore().clearAuth();
     showSuccess(t('auth.passwordUpdated'), 'Success');
     router.push('/login');
   } catch (err: unknown) {

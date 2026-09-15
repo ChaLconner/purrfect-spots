@@ -207,14 +207,8 @@ async def get_otp_service(db: AsyncSession = Depends(get_db)) -> OTPService:
     # This shouldn't normally happen but was reported in Sentry.
     if hasattr(db, "__class__") and db.__class__.__name__ == "Depends":
         logger.error("Dependency Resolution Error: get_otp_service received unsolved 'Depends' object as 'db'!")
-        # Fallback to manual session if possible, though this is a last resort
-        from app.database import AsyncSessionLocal
-
-        if AsyncSessionLocal is not None:
-            async with AsyncSessionLocal() as session:
-                return OTPService(await get_async_supabase_admin_client(), db=session)
-        else:
-            logger.error("AsyncSessionLocal is None, cannot fallback to manual session")
-            return OTPService(await get_async_supabase_admin_client(), db=None)
+        # A session created in a local context would already be closed when this
+        # dependency returns. Use the service-role client for this defensive path.
+        return OTPService(await get_async_supabase_admin_client(), db=None)
 
     return OTPService(await get_async_supabase_admin_client(), db=db)

@@ -38,6 +38,7 @@ describe('AdminReports.vue', () => {
     pinia = createPinia();
     setActivePinia(pinia);
     const authStore = useAuthStore();
+    authStore.isAuthenticated = true;
     authStore.user = {
       id: 'admin1',
       email: 'admin@test.com',

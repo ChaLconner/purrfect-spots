@@ -91,6 +91,9 @@ class PasswordService:
         if len(password) < self.MIN_PASSWORD_LENGTH:
             return False, f"Password must be at least {self.MIN_PASSWORD_LENGTH} characters."
 
+        if len(password) > 1024:
+            return False, "Password must not exceed 1024 characters."
+
         # Check for data breaches
         if check_breach and await self.is_password_pwned(password):
             return False, "This password has been found in a data breach. Please choose a different password."

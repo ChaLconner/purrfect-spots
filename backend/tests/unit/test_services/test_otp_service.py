@@ -23,6 +23,7 @@ class TestOTPService:
         chain_mock.update.return_value = chain_mock
         chain_mock.delete.return_value = chain_mock
         chain_mock.eq.return_value = chain_mock
+        chain_mock.gt.return_value = chain_mock
         chain_mock.is_.return_value = chain_mock
         chain_mock.order.return_value = chain_mock
         chain_mock.limit.return_value = chain_mock
